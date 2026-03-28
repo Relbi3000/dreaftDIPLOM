@@ -3,6 +3,25 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
 
+class SystemConfig(Base):
+    __tablename__ = "system_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ai_safety = Column(Boolean, default=True)
+    retries_enabled = Column(Boolean, default=True)
+    xp_per_quiz = Column(Integer, default=100)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+class AILog(Base):
+    __tablename__ = "ai_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    context = Column(String)
+    question = Column(String)
+    hint = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
 class User(Base):
     __tablename__ = "users"
 
@@ -11,6 +30,7 @@ class User(Base):
     full_name = Column(String)
     hashed_password = Column(String)
     role = Column(String, default="student") # student, teacher, admin
+    is_active = Column(Boolean, default=True)
 
     profile = relationship("GamificationProfile", back_populates="user", uselist=False)
 
@@ -70,3 +90,4 @@ class Attempt(Base):
     score = Column(Float)
     earned_xp = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
+

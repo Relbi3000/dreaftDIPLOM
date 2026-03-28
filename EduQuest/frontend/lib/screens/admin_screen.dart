@@ -15,6 +15,8 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> users = [];
   Map<String, dynamic>? platformStatus;
   bool isSafetyEnabled = true;
+  bool retriesEnabled = true;
+  int xpPerQuiz = 100;
   bool isLoading = true;
 
   @override
@@ -26,14 +28,54 @@ class _AdminScreenState extends State<AdminScreen> {
   Future<void> _loadData() async {
     final usersData = await ApiService.getUsers();
     final statusData = await ApiService.getPlatformStatus();
+    final configData = await ApiService.getSystemConfig();
     
     if (mounted) {
       setState(() {
         users = usersData;
         platformStatus = statusData;
+        if (configData != null) {
+          isSafetyEnabled = configData['ai_safety'] ?? true;
+          retriesEnabled = configData['retries_enabled'] ?? true;
+          xpPerQuiz = configData['xp_per_quiz'] ?? 100;
+        }
         isLoading = false;
       });
     }
+  }
+
+  Future<void> _updateConfig() async {
+    await ApiService.updateSystemConfig(isSafetyEnabled, retriesEnabled, xpPerQuiz);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Configuration saved')));
+  }
+
+  Future<void> _changeRole(int id, String currentRole) async {
+    String? newRole = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Change Role'),
+          content: Column(
+             mainAxisSize: MainAxisSize.min,
+             children: ['student', 'teacher', 'admin'].map((role) {
+               return ListTile(
+                 title: Text(role.toUpperCase()),
+                 onTap: () => Navigator.pop(context, role),
+               );
+             }).toList(),
+          ),
+        );
+      }
+    );
+    if (newRole != null && newRole != currentRole) {
+      await ApiService.changeUserRole(id, newRole);
+      _loadData();
+    }
+  }
+
+  Future<void> _toggleUserStatus(int id, bool currentStatus) async {
+    await ApiService.toggleUserStatus(id, !currentStatus);
+    _loadData();
   }
 
   void _logout() {
@@ -71,7 +113,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    _buildStatusRow('AI Tutor API', platformStatus?['services']?['tutor_api'] ?? 'Online Mock', Colors.green),
+                    _buildStatusRow('AI Tutor API', platformStatus?['services']?['safety_filter'] == 'Active' ? 'Online Safe' : 'Online Raw', Colors.green),
                     const SizedBox(height: 12),
                     _buildStatusRow('Database', platformStatus?['services']?['database'] ?? 'Connected', Colors.green),
                   ],
@@ -100,19 +142,32 @@ class _AdminScreenState extends State<AdminScreen> {
               ),
             const SizedBox(height: 32),
 
-            const Text('AI Safety & Moderation', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text('System Configuration', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Card(
-              child: SwitchListTile(
-                title: const Text('Strict AI Safety Filter', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Prevent AI from answering off-topic questions (Mock control)'),
-                value: isSafetyEnabled,
-                activeColor: Theme.of(context).colorScheme.secondary,
-                onChanged: (val) {
-                  setState(() {
-                    isSafetyEnabled = val;
-                  });
-                },
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('Strict AI Safety Filter', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Prevent AI from answering off-topic questions'),
+                    value: isSafetyEnabled,
+                    activeColor: Theme.of(context).colorScheme.secondary,
+                    onChanged: (val) {
+                      setState(() => isSafetyEnabled = val);
+                      _updateConfig();
+                    },
+                  ),
+                  SwitchListTile(
+                    title: const Text('Quiz Retries', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Allow students to retry quizzes'),
+                    value: retriesEnabled,
+                    activeColor: Theme.of(context).colorScheme.secondary,
+                    onChanged: (val) {
+                      setState(() => retriesEnabled = val);
+                      _updateConfig();
+                    },
+                  ),
+                ],
               ),
             ),
 
@@ -125,20 +180,29 @@ class _AdminScreenState extends State<AdminScreen> {
               itemCount: users.length,
               itemBuilder: (context, index) {
                 final u = users[index];
+                final isActive = u['is_active'] ?? true;
                 return Card(
+                  color: isActive ? null : Colors.red.withOpacity(0.05),
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: _getRoleColor(u['role']).withOpacity(0.2),
-                      child: Icon(Icons.person, color: _getRoleColor(u['role'])),
+                      backgroundColor: isActive ? _getRoleColor(u['role']).withOpacity(0.2) : Colors.grey.withOpacity(0.2),
+                      child: Icon(Icons.person, color: isActive ? _getRoleColor(u['role']) : Colors.grey),
                     ),
-                    title: Text('${u['name'] ?? ''} (${u['email']})', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('Role: ${u['role']}'),
-                    trailing: PopupMenuButton(
+                    title: Text('${u['name'] ?? ''} (${u['email']})', style: TextStyle(fontWeight: FontWeight.bold, decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough)),
+                    subtitle: Text('Role: ${u['role']} | Status: ${isActive ? "Active" : "Blocked"}'),
+                    trailing: PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert),
+                      onSelected: (value) {
+                         if (value == 'role') {
+                           _changeRole(u['id'], u['role']);
+                         } else if (value == 'status') {
+                           _toggleUserStatus(u['id'], isActive);
+                         }
+                      },
                       itemBuilder: (context) => [
-                        const PopupMenuItem(child: Text("Edit Role")),
-                        const PopupMenuItem(child: Text("Deactivate User", style: TextStyle(color: Colors.red))),
+                        const PopupMenuItem(value: 'role', child: Text("Edit Role")),
+                        PopupMenuItem(value: 'status', child: Text(isActive ? "Deactivate User" : "Activate User", style: TextStyle(color: isActive ? Colors.red : Colors.green))),
                       ],
                     ),
                   ),

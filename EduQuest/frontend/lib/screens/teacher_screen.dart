@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'analytics_screen.dart';
@@ -48,6 +49,126 @@ class _TeacherScreenState extends State<TeacherScreen> {
     );
   }
 
+  Future<void> _showCreateCourseDialog() async {
+    final titleController = TextEditingController();
+    final descController = TextEditingController();
+
+    return showDialog(context: context, builder: (context) {
+      return AlertDialog(
+        title: const Text('Create New Course'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Course Title')),
+            TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
+          ]
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleController.text.isNotEmpty) {
+                await ApiService.createCourse(titleController.text, descController.text);
+                _loadData();
+                if (mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('Create'),
+          )
+        ],
+      );
+    });
+  }
+
+  Future<void> _showCreateLessonDialog() async {
+    if (courses.isEmpty) return;
+    int selectedCourseId = courses.first['id'];
+    final titleController = TextEditingController();
+    final contentController = TextEditingController();
+    final orderController = TextEditingController(text: "1");
+
+    return showDialog(context: context, builder: (context) {
+      return AlertDialog(
+        title: const Text('Create New Lesson'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                value: selectedCourseId,
+                items: courses.map((c) => DropdownMenuItem<int>(value: c['id'], child: Text(c['title'], maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
+                onChanged: (v) => selectedCourseId = v!,
+                decoration: const InputDecoration(labelText: 'Select Course'),
+              ),
+              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Lesson Title')),
+              TextField(controller: contentController, maxLines: 3, decoration: const InputDecoration(labelText: 'Content')),
+              TextField(controller: orderController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Order')),
+            ]
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleController.text.isNotEmpty) {
+                await ApiService.createLesson(selectedCourseId, titleController.text, contentController.text, int.tryParse(orderController.text) ?? 1);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lesson Created')));
+                if (mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('Create'),
+          )
+        ],
+      );
+    });
+  }
+
+  Future<void> _showCreateQuizDialog() async {
+    final titleController = TextEditingController();
+    final lessonIdController = TextEditingController();
+    
+    // MVP: direct JSON input for quiz questions
+    final questionsController = TextEditingController(text: '[{"q": "Example?", "options": ["A", "B", "C", "D"], "answer": 0}]');
+
+    return showDialog(context: context, builder: (context) {
+      return AlertDialog(
+        title: const Text('Create New Quiz (Advanced)'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Quiz Title')),
+              TextField(controller: lessonIdController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Lesson ID')),
+              const SizedBox(height: 16),
+              const Text("Questions JSON Array:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              TextField(controller: questionsController, maxLines: 5, decoration: const InputDecoration(border: OutlineInputBorder())),
+            ]
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleController.text.isNotEmpty && lessonIdController.text.isNotEmpty) {
+                try {
+                  List<dynamic> qJson = jsonDecode(questionsController.text);
+                  await ApiService.createQuiz(int.parse(lessonIdController.text), titleController.text, qJson);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Quiz Created')));
+                    Navigator.pop(context);
+                  }
+                } catch (e) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid JSON formatting!'), backgroundColor: Colors.red));
+                }
+              }
+            },
+            child: const Text('Create'),
+          )
+        ],
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -63,6 +184,24 @@ class _TeacherScreenState extends State<TeacherScreen> {
           ),
           IconButton(icon: const Icon(Icons.logout), tooltip: 'Logout', onPressed: _logout)
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          showModalBottomSheet(context: context, builder: (context) {
+            return SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(leading: const Icon(Icons.school, color: Colors.blue), title: const Text('Add Course'), onTap: () { Navigator.pop(context); _showCreateCourseDialog(); }),
+                  ListTile(leading: const Icon(Icons.menu_book, color: Colors.green), title: const Text('Add Lesson'), onTap: () { Navigator.pop(context); _showCreateLessonDialog(); }),
+                  ListTile(leading: const Icon(Icons.quiz, color: Colors.redAccent), title: const Text('Add Quiz (JSON)'), onTap: () { Navigator.pop(context); _showCreateQuizDialog(); }),
+                ],
+              ),
+            );
+          });
+        },
+        icon: const Icon(Icons.add),
+        label: const Text("Create Content"),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -133,7 +272,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 );
               },
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 80),
           ],
         ),
       ),
@@ -172,6 +311,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
         ),
         title: Text(course['title'], style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(course['description'], maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: Text('ID: ${course['id']}', style: const TextStyle(color: Colors.grey)),
       ),
     );
   }

@@ -11,6 +11,11 @@ def seed_db():
 
     db = SessionLocal()
     
+    print("Seeding system config...")
+    sys_config = models.SystemConfig()
+    db.add(sys_config)
+    db.commit()
+
     print("Seeding users...")
     users_data = [
         {"email": "student@eduquest.com", "full_name": "Demo Student", "role": "student"},
@@ -174,6 +179,16 @@ def seed_db():
     
     db.add(models.Attempt(user_id=alice.id, quiz_id=quiz1.id, score=1.0, earned_xp=100, created_at=now - timedelta(days=3)))
 
+    db.commit()
+
+    print("Seeding AI Logs...")
+    db.add(models.AILog(
+        user_id=student.id,
+        context="What is Artificial Intelligence?",
+        question="Can you give me a simple example of AI?",
+        hint="Sure! A great example is the recommendation system on YouTube.",
+        timestamp=now - timedelta(hours=2)
+    ))
     db.commit()
 
     print("Database seeded successfully with demo content!")

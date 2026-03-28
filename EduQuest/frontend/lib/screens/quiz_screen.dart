@@ -22,6 +22,7 @@ class _QuizScreenState extends State<QuizScreen> {
   bool showResult = false;
   Map<String, dynamic>? resultData;
   int? quizId;
+  bool retriesEnabled = true;
 
   @override
   void initState() {
@@ -31,15 +32,19 @@ class _QuizScreenState extends State<QuizScreen> {
 
   Future<void> _loadQuiz() async {
     final quiz = await ApiService.getQuiz(widget.lessonId);
+    final config = await ApiService.getSystemConfig();
+    
     setState(() {
-      if (quiz != null) {
+      if (config != null) {
+        retriesEnabled = config['retries_enabled'] ?? true;
+      }
+      if (quiz != null && quiz['questions'] != null) {
         quizId = quiz['id'];
         questions = jsonDecode(quiz['questions']);
       } else {
         quizId = 1;
         questions = [
           {'q': 'What is a variable?', 'options': ['A data container', 'A loop', 'A function'], 'answer': 0},
-          {'q': 'Which is NOT a standard data type?', 'options': ['Integer', 'String', 'Elephant'], 'answer': 2}
         ];
       }
       userAnswers = List.filled(questions.length, -1);
@@ -57,18 +62,20 @@ class _QuizScreenState extends State<QuizScreen> {
     if (currentQuestionIdx < questions.length - 1) {
       setState(() => currentQuestionIdx++);
     } else {
-      // Quiz finished, submit score
       setState(() => isLoading = true);
       double score = questions.isEmpty ? 0 : correctAnswers / questions.length;
       final res = await ApiService.submitQuiz(quizId ?? 1, widget.userId, score);
       
-      // Also mark lesson as completed
       await ApiService.completeLesson(widget.userId, widget.lessonId);
 
       setState(() {
         isLoading = false;
         showResult = true;
-        resultData = res ?? {'xp_earned': (score * 100).toInt(), 'new_level': 1};
+        resultData = res ?? {
+          'xp_earned': (score * 100).toInt(), 
+          'new_level': 1, 
+          'feedback_message': 'Good job! Keep learning.'
+        };
       });
     }
   }
@@ -136,7 +143,19 @@ class _QuizScreenState extends State<QuizScreen> {
           const Text('Quiz Completed!', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text('You scored $correctAnswers out of ${questions.length}', style: const TextStyle(fontSize: 18, color: Colors.white70)),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
+          if (resultData != null && resultData!['feedback_message'] != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.blueAccent.withOpacity(0.5))),
+              child: Text(
+                resultData!['feedback_message'],
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16, color: Colors.lightBlueAccent, fontStyle: FontStyle.italic),
+              ),
+            ),
+          const SizedBox(height: 16),
            Container(
              padding: const EdgeInsets.all(20),
              decoration: BoxDecoration(color: const Color(0xFF6C63FF).withOpacity(0.2), borderRadius: BorderRadius.circular(16)),
@@ -171,7 +190,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Text('Your answer: ${userAnswerIdx >= 0 ? q['options'][userAnswerIdx] : 'None'}', 
+                    Text('Your answer: ${userAnswerIdx >= 0 && userAnswerIdx < q['options'].length ? q['options'][userAnswerIdx] : 'None'}', 
                       style: TextStyle(color: isCorrect ? Colors.green : Colors.redAccent)),
                     if (!isCorrect)
                       Text('Correct answer: ${q['options'][correctIdx]}', style: const TextStyle(color: Colors.green)),
@@ -184,12 +203,13 @@ class _QuizScreenState extends State<QuizScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              OutlinedButton.icon(
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry Quiz'),
-                onPressed: _retryQuiz,
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)),
-              ),
+              if (retriesEnabled)
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry Quiz'),
+                  onPressed: _retryQuiz,
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)),
+                ),
               ElevatedButton.icon(
                 icon: const Icon(Icons.dashboard),
                 label: const Text('Continue'),
