@@ -1,0 +1,49 @@
+
+APPROVED
+Educational and methodological council
+LLP "Astana IT University"
+Protocol No. 5 of January 25, 2023
+
+      Appendix to the internal regulatory document "Guidelines for the implementation of diploma projects/works at Astana IT University LLP" dated November 28, 2019.
+Table 1.1 - Criteria for evaluating projects in the Software Engineering educational program
+
+Estimated parameterGradeRationale for the Assessment1. Introduction15 pointsProvide an overview of the project or research topic (5 points).
+Explain the significance of the work and its potential impact (5 points).
+Outline the objectives and goals of the project (5 points).
+2. Literature Review:15 points
+Availability of a high-quality literature review (15 points):
+More than 20 scientific citations (5points).
+15 to 20 scientific citations (5 points).
+From 10 to 15 scientific citations (3 points).
+Less than 10 scientific citations (1 points).3. Analysis of Existing Systems/Conceptual framework 10 pointsEvaluate current systems or solutions related to your project. (2 points).
+Identify strengths, weaknesses, opportunities, and threats. (2 points).
+Discuss how your project improves upon or differs from existing systems (2 points).
+Describe the methods and sources used to collect data for your project. (2 points).
+Discuss any challenges or limitations in obtaining relevant data (2 points).
+4. Methodology/Methods/Approach of the Work15 pointsExplain the approach or methodology used to carry out the project. (5 points)
+Detail the steps involved in data analysis, experimentation, or development. (5 points)
+Justify your chosen methodology and explain how it aligns with your project goals. (5 points)
+5. MVP/UML Diagrams/Architecture of the Project15 points
+
+
+
+
+
+
+Present Minimum Viable Product (MVP) features or functionalities. (5 points)
+Use UML diagrams (e.g., use case diagrams, sequence diagrams, class diagrams) to illustrate the system architecture and design. (5 points)
+Provide explanations and annotations for each diagram to clarify the system's structure and behavior. (5) points)6. Technology comparison /Technology used 10 points
+
+
+
+Compare different technologies, frameworks, or tools relevant to your project. (2 points)
+Evaluate their suitability based on criteria such as performance, scalability, ease of use, etc. (2 points)
+Discuss the rationale behind your technology choices. (6 points)
+      7. Effective Implementation /Deployment of the Project20 pointsCreate visual representations of the project's user interface or system components. Backend is connected with frontend and database (10 points)
+Showcase different screens, layouts, and interactions. (5 points)
+Explain the design choices and how they enhance user experience or system functionality. (5 points)
+8. Presentation and Communication /Quality of writing expression 10 pointsThe way of student to present the project and related work (3).
+Communication of the student during the presentation and explaining the facts (3). 
+The Quality of writing the project report (4)The maximum points that can be awarded for each criterion are indicated.
+TOTAL 100 points
+Director of Computer Engineering 						Praveen Kumar 

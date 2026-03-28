@@ -1,0 +1,47 @@
+5. MVP / UML Diagrams / Architecture of the Project
+Thesis Chapter
+This chapter presents the Minimum Viable Product (MVP) of the proposed AI-Enhanced Game-Based Learning Application and explains the UML and architectural diagrams used to describe the system structure and behavior. The chapter demonstrates the core features of the prototype and provides annotated visual models of user interactions, service architecture, system behavior, and domain entities.
+5.1 Minimum Viable Product (MVP) Features
+The MVP focuses on the minimum set of features required to demonstrate a functional AI-enhanced learning application. The first version of the system allows students to access learning content, take quizzes, request AI assistance during learning activities, and monitor their progress through gamification features. Teachers can publish course content, assign quizzes, and review class-level analytics, while administrators manage user access and safety-related platform settings.
+MVP FeaturePrimary UserPurposeUser authentication and role-based accessStudent, Teacher, AdministratorProvides secure login and separates user responsibilities in the system.Course and lesson browsingStudentEnables learners to access available educational content before starting game-based tasks.Quiz attempt lifecycleStudentAllows students to start a quiz, submit answers, and receive immediate results.AI assistance during learningStudentSupplies hints, explanations, and feedback to support adaptive learning.Progress and gamification trackingStudentShows progress, rewards, and engagement indicators such as points or levels.Content publication and quiz assignmentTeacherAllows teachers to create learning materials and distribute tasks to learners.Analytics and monitoringTeacherProvides insight into learner performance and overall class progress.Access control and safety policy managementAdministratorSupports user-role management and AI-related operational control.
+
+5.2 Use Case Diagram
+
+Figure 5.1. Use Case Diagram of the Proposed AI-Enhanced Game-Based Learning Application
+Explanation. The use case diagram identifies the main actors of the system and summarizes how each role interacts with the application. The student is the primary user and is responsible for browsing learning materials, starting quiz attempts, submitting answers, requesting AI help, and viewing progress. The teacher manages content publication and learning analytics, while the administrator controls access roles and AI safety settings. This diagram clarifies the functional scope of the MVP and shows that the system combines learning, gamification, and AI-supported assistance within one application.
+* Student-related use cases represent the core learner journey in the system.
+* Teacher-related use cases focus on instructional management and monitoring.
+* Administrator-related use cases support governance, access control, and safe system operation.
+
+5.3 High-Level System Architecture
+
+Figure 5.2. High-Level System Architecture of the Proposed AI-Enhanced Game-Based Learning Application
+Explanation. The architecture diagram presents the major technical layers of the application. The Mobile App communicates with the API Gateway / BFF, which acts as the main entry point and routes requests to the IAM Service, Content Service, Quiz Engine, and AI Tutor Gateway. Learning content is stored in Firestore and S3 / MinIO, while quiz submissions are processed by the Quiz Engine and published to the Event Bus. Event-driven updates are then handled by the Gamification, Analytics, and Notification services. AI requests are isolated in the AI Tutor Gateway and forwarded to the n8n Orchestrator and the external LLM Provider API. This separation of concerns improves maintainability, supports scalability, and keeps AI integration controlled and auditable.
+* The API Gateway / BFF centralizes client access and simplifies communication with backend services.
+* The Event Bus enables asynchronous processing for analytics, rewards, and notifications.
+* The AI Tutor Gateway isolates external AI calls from the rest of the application logic.
+
+
+5.4 Sequence Diagram: Quiz Submission and Result Processing
+
+Figure 5.3. Sequence Diagram of Quiz Submission and Asynchronous Update Processing
+Explanation. This sequence diagram explains how the system handles a student quiz submission. The student sends answers through the mobile application, the API Gateway / BFF forwards the request after user verification, and the Quiz Engine validates the attempt, computes the score, and stores the result in the database. After the score is returned to the student, the system publishes an event that triggers asynchronous updates in the Gamification and Analytics services. The diagram demonstrates that the result is delivered quickly on the main interaction path, while secondary processes are handled separately in the background.
+* User verification occurs before the submission is processed by the quiz logic.
+* The Quiz Engine is responsible for validation, scoring, and persistence of results.
+* Gamification and analytics are updated asynchronously after the student receives the result.
+
+5.5 Sequence Diagram: AI Help Request and Safety-Controlled Response
+
+Figure 5.4. Sequence Diagram of AI Help Request, Validation, and Fallback Handling
+Explanation. This sequence diagram shows how AI support is requested and safely returned to the learner. A student requests help through the application, the request is verified by the IAM layer, and the AI Tutor Gateway evaluates policy, rate-limit, and cache conditions before invoking the AI workflow. If a valid cached answer exists, it is returned directly; otherwise, the gateway starts a new workflow through n8n and the LLM provider. The diagram also includes a provider-failure branch that produces a safe fallback response. This behavior illustrates that the AI component is not only intelligent but also controlled, logged, and fault-tolerant.
+* Policy and cache checks act as a control layer before the external AI service is used.
+* AI interactions are logged for traceability and later analysis.
+* Fallback handling allows the system to remain responsive even when the provider fails.
+5.6 Class Diagram
+
+Figure 5.5. Class Diagram of the Main Domain Entities in the Proposed Application
+Explanation. The class diagram describes the main structural entities of the system and their relationships. The User class is specialized into Student, Teacher, and Administrator, reflecting different access rights and responsibilities. The educational domain is represented by Course, Lesson, Quiz, and Question, while learner activity is modeled through Attempt and AttemptResult. GamificationProfile stores engagement-related data, and AIInteraction records AI-assisted exchanges connected to the learning process. The diagram clarifies the conceptual data structure of the application and shows how pedagogical content, learner actions, and AI-supported behavior are integrated in a single domain model.
+* Inheritance is used to distinguish different user roles while keeping a shared base profile.
+* Course, lesson, quiz, and question classes represent the instructional content structure.
+* Attempt, result, gamification, and AI interaction classes represent learning activity and system feedback.
+Overall, the MVP and the accompanying UML and architecture diagrams demonstrate that the proposed application is feasible, logically structured, and aligned with the thesis goal of developing an AI-enhanced game-based learning system. Together, the diagrams explain who uses the system, how the major components interact, how learning and AI flows operate, and which core entities are required to implement the solution.

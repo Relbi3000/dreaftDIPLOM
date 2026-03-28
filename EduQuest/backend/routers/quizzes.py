@@ -1,0 +1,56 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+import models, database
+from pydantic import BaseModel
+import json
+
+router = APIRouter()
+
+class QuizSchema(BaseModel):
+    id: int
+    title: str
+    questions: str
+
+    class Config:
+        from_attributes = True
+
+class QuizSubmit(BaseModel):
+    user_id: int
+    score: float
+
+@router.get("/lesson/{lesson_id}", response_model=QuizSchema)
+def get_quiz_by_lesson(lesson_id: int, db: Session = Depends(database.get_db)):
+    quiz = db.query(models.Quiz).filter(models.Quiz.lesson_id == lesson_id).first()
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    return quiz
+
+@router.post("/{quiz_id}/submit")
+def submit_quiz(quiz_id: int, submission: QuizSubmit, db: Session = Depends(database.get_db)):
+    # 1. Save attempt
+    xp_earned = int(submission.score * 100) # Simple xp formula
+    attempt = models.Attempt(
+        user_id=submission.user_id,
+        quiz_id=quiz_id,
+        score=submission.score,
+        earned_xp=xp_earned
+    )
+    db.add(attempt)
+    
+    # 2. Update Gamification Profile
+    profile = db.query(models.GamificationProfile).filter(models.GamificationProfile.user_id == submission.user_id).first()
+    if profile:
+        profile.xp += xp_earned
+        profile.streak += 1
+        # Simple level up logic
+        if profile.xp > profile.level * 500:
+            profile.level += 1
+            
+    db.commit()
+    
+    return {
+        "message": "Quiz submitted",
+        "score": submission.score,
+        "xp_earned": xp_earned,
+        "new_level": profile.level if profile else 1
+    }
