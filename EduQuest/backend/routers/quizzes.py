@@ -54,3 +54,19 @@ def submit_quiz(quiz_id: int, submission: QuizSubmit, db: Session = Depends(data
         "xp_earned": xp_earned,
         "new_level": profile.level if profile else 1
     }
+
+@router.get("/user/{user_id}/attempts")
+def get_user_attempts(user_id: int, db: Session = Depends(database.get_db)):
+    attempts = db.query(models.Attempt).filter(models.Attempt.user_id == user_id).order_by(models.Attempt.created_at.desc()).all()
+    result = []
+    for a in attempts:
+        quiz = db.query(models.Quiz).filter(models.Quiz.id == a.quiz_id).first()
+        result.append({
+            "id": a.id,
+            "quiz_id": a.quiz_id,
+            "quiz_title": quiz.title if quiz else "Unknown",
+            "score": a.score,
+            "earned_xp": a.earned_xp,
+            "created_at": a.created_at.isoformat() if a.created_at else None
+        })
+    return result

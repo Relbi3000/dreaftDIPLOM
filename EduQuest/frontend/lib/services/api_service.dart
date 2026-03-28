@@ -29,36 +29,62 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>?> getProfile(int userId) async {
-    final response = await http.get(Uri.parse('$baseUrl/gamification/profile/$userId'));
-    if (response.statusCode == 200) return jsonDecode(response.body);
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/gamification/profile/$userId'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
     return null;
   }
 
+  static Future<bool> completeLesson(int userId, int lessonId) async {
+    try {
+      final response = await http.post(Uri.parse('$baseUrl/gamification/profile/$userId/complete_lesson/$lessonId'));
+      return response.statusCode == 200;
+    } catch (_) {}
+    return false;
+  }
+
+  static Future<List<dynamic>> getUserAttempts(int userId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/quizzes/user/$userId/attempts'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return [];
+  }
+
   static Future<List<dynamic>> getCourses() async {
-    final response = await http.get(Uri.parse('$baseUrl/courses/'));
-    if (response.statusCode == 200) return jsonDecode(response.body);
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/courses/'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
     return [];
   }
 
   static Future<List<dynamic>> getLessons(int courseId) async {
-    final response = await http.get(Uri.parse('$baseUrl/courses/$courseId/lessons'));
-    if (response.statusCode == 200) return jsonDecode(response.body);
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/courses/$courseId/lessons'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
     return [];
   }
 
   static Future<Map<String, dynamic>?> getQuiz(int lessonId) async {
-    final response = await http.get(Uri.parse('$baseUrl/quizzes/lesson/$lessonId'));
-    if (response.statusCode == 200) return jsonDecode(response.body);
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/quizzes/lesson/$lessonId'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
     return null;
   }
 
   static Future<Map<String, dynamic>?> submitQuiz(int quizId, int userId, double score) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/quizzes/$quizId/submit'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'user_id': userId, 'score': score}),
-    );
-    if (response.statusCode == 200) return jsonDecode(response.body);
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/quizzes/$quizId/submit'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId, 'score': score}),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
     return null;
   }
 
@@ -79,9 +105,25 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>?> getTeacherDashboard() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/teacher/dashboard'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
   static Future<List<dynamic>> getStudentsProgress() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/teacher/students-progress'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<List<dynamic>> getTeacherAttempts() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/teacher/recent-attempts'));
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (_) {}
     return [];
@@ -98,6 +140,14 @@ class ApiService {
   static Future<Map<String, dynamic>?> getPlatformStatus() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/admin/platform-status'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> getAnalyticsOverview() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/analytics/overview'));
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (_) {}
     return null;

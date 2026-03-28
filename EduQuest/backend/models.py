@@ -1,5 +1,6 @@
-from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Float
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Float, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from database import Base
 
 class User(Base):
@@ -44,6 +45,14 @@ class Lesson(Base):
     
     course = relationship("Course", back_populates="lessons")
 
+class CompletedLesson(Base):
+    __tablename__ = "completed_lessons"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    lesson_id = Column(Integer, ForeignKey("lessons.id"))
+    completed_at = Column(DateTime, default=datetime.utcnow)
+
 class Quiz(Base):
     __tablename__ = "quizzes"
 
@@ -60,3 +69,4 @@ class Attempt(Base):
     quiz_id = Column(Integer, ForeignKey("quizzes.id"))
     score = Column(Float)
     earned_xp = Column(Integer)
+    created_at = Column(DateTime, default=datetime.utcnow)

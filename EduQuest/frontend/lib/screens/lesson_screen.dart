@@ -16,26 +16,38 @@ class LessonScreen extends StatefulWidget {
 
 class _LessonScreenState extends State<LessonScreen> {
   List<dynamic> lessons = [];
+  List<int> completedLessons = [];
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadLessons();
+    _loadData();
   }
 
-  Future<void> _loadLessons() async {
-    final res = await ApiService.getLessons(widget.courseId);
+  Future<void> _loadData() async {
+    final resLessons = await ApiService.getLessons(widget.courseId);
+    final resProfile = await ApiService.getProfile(widget.userId);
+    
     setState(() {
-      lessons = res.isNotEmpty ? res : [
-        {'id': 1, 'title': 'Variables and Data Types', 'content': 'Variables are containers for storing data values...'},
-        {'id': 2, 'title': 'Control Structures (Loops)', 'content': 'Loops allow you to repeat a block of code...'}
-      ];
+      lessons = resLessons.isNotEmpty ? resLessons : [];
+      if (resProfile != null && resProfile['completed_lessons'] != null) {
+        completedLessons = List<int>.from(resProfile['completed_lessons']);
+      }
       isLoading = false;
     });
   }
 
   void _openLessonDetails(dynamic lesson) {
+      // Mark as completed when opened
+      if (!completedLessons.contains(lesson['id'])) {
+        ApiService.completeLesson(widget.userId, lesson['id']).then((_) {
+           setState(() {
+             completedLessons.add(lesson['id']);
+           });
+        });
+      }
+
      showModalBottomSheet(
         context: context, 
         isScrollControlled: true,
@@ -73,11 +85,12 @@ class _LessonScreenState extends State<LessonScreen> {
            ElevatedButton.icon(
              icon: const Icon(Icons.quiz),
              label: const Text('Take Quiz to Earn XP'),
-             onPressed: () {
+             onPressed: () async {
                Navigator.pop(context); // close modal
-               Navigator.push(context, MaterialPageRoute(
+               await Navigator.push(context, MaterialPageRoute(
                  builder: (_) => QuizScreen(lessonId: lesson['id'], lessonTitle: lesson['title'], userId: widget.userId)
                ));
+               _loadData(); // refresh completed status
              },
            )
          ],
@@ -91,20 +104,27 @@ class _LessonScreenState extends State<LessonScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.courseTitle)),
-      body: ListView.builder(
+      body: lessons.isEmpty 
+          ? const Center(child: Text("No lessons found for this course."))
+          : ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: lessons.length,
         itemBuilder: (context, index) {
           final l = lessons[index];
+          final isCompleted = completedLessons.contains(l['id']);
+
           return Card(
              margin: const EdgeInsets.only(bottom: 16),
+             elevation: isCompleted ? 1 : 3,
              child: ListTile(
                leading: CircleAvatar(
-                 backgroundColor: const Color(0xFF6C63FF).withOpacity(0.2),
-                 child: Text('${index + 1}', style: const TextStyle(color: Color(0xFF6C63FF), fontWeight: FontWeight.bold)),
+                 backgroundColor: isCompleted ? Colors.green.withOpacity(0.2) : const Color(0xFF6C63FF).withOpacity(0.2),
+                 child: isCompleted 
+                     ? const Icon(Icons.check, color: Colors.green)
+                     : Text('${index + 1}', style: const TextStyle(color: Color(0xFF6C63FF), fontWeight: FontWeight.bold)),
                ),
-               title: Text(l['title'], style: const TextStyle(fontWeight: FontWeight.bold)),
-               subtitle: const Text('Read lesson & take quiz'),
+               title: Text(l['title'], style: TextStyle(fontWeight: FontWeight.bold, decoration: isCompleted ? TextDecoration.none : null)),
+               subtitle: Text(isCompleted ? 'Completed' : 'Read lesson & take quiz', style: TextStyle(color: isCompleted ? Colors.green : Colors.grey)),
                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                contentPadding: const EdgeInsets.all(16),
                onTap: () => _openLessonDetails(l),
@@ -115,3 +135,4 @@ class _LessonScreenState extends State<LessonScreen> {
     );
   }
 }
+
