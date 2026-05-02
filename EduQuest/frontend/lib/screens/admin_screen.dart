@@ -84,26 +84,39 @@ class _AdminScreenState extends State<AdminScreen> {
         ),
       ),
     );
+    if (ok) {
+      await _loadData();
+    }
   }
 
   Future<void> _changeRole(int id, String currentRole) async {
-    final newRole = await showDialog<String>(
+    final newRole = await showAppModalSheet<String>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Change role'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children:
-                ['student', 'teacher', 'admin']
-                    .map(
-                      (role) => ListTile(
-                        title: Text(role.toUpperCase()),
-                        onTap: () => Navigator.pop(context, role),
-                      ),
-                    )
-                    .toList(),
-          ),
+      builder: (sheetContext) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Change role',
+              style: Theme.of(sheetContext).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Switch the governance role while keeping the mobile action flow stable.',
+              style: Theme.of(sheetContext).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            ...['student', 'teacher', 'admin'].map(
+              (role) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(sheetContext).pop(role),
+                  child: Text(role.toUpperCase()),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -152,7 +165,7 @@ class _AdminScreenState extends State<AdminScreen> {
     return EduQuestShell(
       title: 'Admin workspace',
       subtitle:
-          'Govern platform usage, user access, and AI-related operating controls.',
+          'Govern platform usage, user access, and AI-related operating controls without desktop-style overflow.',
       currentIndex: _selectedIndex,
       destinations: _destinations,
       onSelect: (index) => setState(() => _selectedIndex = index),
@@ -193,6 +206,9 @@ class _AdminScreenState extends State<AdminScreen> {
     final services =
         platformStatus?['services'] as Map<String, dynamic>? ??
         <String, dynamic>{};
+    final roleDistribution =
+        platformStatus?['role_distribution'] as Map<String, dynamic>? ??
+        <String, dynamic>{};
 
     return ListView(
       children: [
@@ -200,19 +216,31 @@ class _AdminScreenState extends State<AdminScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const AppInfoChip(
-                label: 'Governance shell',
-                color: EduQuestColors.info,
-                icon: Icons.admin_panel_settings_outlined,
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  const AppInfoChip(
+                    label: 'Governance shell',
+                    color: EduQuestColors.info,
+                    icon: Icons.admin_panel_settings_outlined,
+                  ),
+                  AppInfoChip(
+                    label:
+                        'AI logs: ${platformStatus?['recent_ai_activity_count'] ?? 0}',
+                    color: EduQuestColors.secondary,
+                    icon: Icons.smart_toy_outlined,
+                  ),
+                ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Text(
                 'Platform health overview',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
               Text(
-                'Admin surfaces should feel operational and policy-driven rather than like ordinary learning dashboards.',
+                'Keep critical service, role, and policy signals visible without turning the mobile view into a cramped dashboard.',
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
@@ -221,41 +249,33 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 170,
-          child: GridView.count(
-            crossAxisCount: 2,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.45,
-            children: [
-              AppStatCard(
-                label: 'Users',
-                value: '${metrics['users'] ?? 0}',
-                icon: Icons.people_outline,
-                color: EduQuestColors.primary,
-              ),
-              AppStatCard(
-                label: 'Courses',
-                value: '${metrics['courses'] ?? 0}',
-                icon: Icons.library_books_outlined,
-                color: EduQuestColors.secondary,
-              ),
-              AppStatCard(
-                label: 'Quizzes',
-                value: '${metrics['quizzes'] ?? 0}',
-                icon: Icons.quiz_outlined,
-                color: EduQuestColors.info,
-              ),
-              AppStatCard(
-                label: 'Attempts',
-                value: '${metrics['attempts'] ?? 0}',
-                icon: Icons.fact_check_outlined,
-                color: EduQuestColors.success,
-              ),
-            ],
-          ),
+        ResponsiveStatsGrid(
+          children: [
+            AppStatCard(
+              label: 'Users',
+              value: '${metrics['users'] ?? 0}',
+              icon: Icons.people_outline,
+              color: EduQuestColors.primary,
+            ),
+            AppStatCard(
+              label: 'Courses',
+              value: '${metrics['courses'] ?? 0}',
+              icon: Icons.library_books_outlined,
+              color: EduQuestColors.secondary,
+            ),
+            AppStatCard(
+              label: 'Quizzes',
+              value: '${metrics['quizzes'] ?? 0}',
+              icon: Icons.quiz_outlined,
+              color: EduQuestColors.info,
+            ),
+            AppStatCard(
+              label: 'Attempts',
+              value: '${metrics['attempts'] ?? 0}',
+              icon: Icons.fact_check_outlined,
+              color: EduQuestColors.success,
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         const AppSectionHeader(
@@ -271,32 +291,27 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
           ('Database', services['database']?.toString() ?? 'Unknown'),
           (
-            'Retries policy',
-            retriesEnabled ? 'Enabled for learners' : 'Disabled for learners',
+            'Role mix',
+            'S ${roleDistribution['student'] ?? 0} • T ${roleDistribution['teacher'] ?? 0} • A ${roleDistribution['admin'] ?? 0}',
           ),
-        ].map((entry) {
-          return Padding(
+        ].map(
+          (entry) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: AppSurface(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.donut_small_outlined,
-                    color: EduQuestColors.info,
+                  Text(
+                    entry.$1,
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      entry.$1,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
+                  const SizedBox(height: 8),
                   Text(entry.$2, style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
             ),
-          );
-        }),
+          ),
+        ),
       ],
     );
   }
@@ -314,7 +329,7 @@ class _AdminScreenState extends State<AdminScreen> {
             icon: Icons.group_outlined,
             title: 'No users returned',
             description:
-                'The governance shell is ready. User data will appear here when the admin endpoint responds with rows.',
+                'User governance data should populate here from the admin endpoint.',
           )
         else
           ...users.map((user) {
@@ -324,6 +339,7 @@ class _AdminScreenState extends State<AdminScreen> {
               padding: const EdgeInsets.only(bottom: 12),
               child: AppSurface(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
@@ -352,12 +368,14 @@ class _AdminScreenState extends State<AdminScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                user['email']?.toString() ?? 'User',
+                                user['name']?.toString() ??
+                                    user['email']?.toString() ??
+                                    'User',
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${role.toUpperCase()} • ${isActive ? 'Active' : 'Suspended'}',
+                                user['email']?.toString() ?? '',
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ],
@@ -365,30 +383,50 @@ class _AdminScreenState extends State<AdminScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-                    Row(
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => _changeRole(user['id'], role),
-                            child: const Text('Change role'),
-                          ),
+                        AppInfoChip(
+                          label: role.toUpperCase(),
+                          color: EduQuestColors.info,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed:
-                                () => _toggleUserStatus(user['id'], isActive),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  isActive
-                                      ? EduQuestColors.danger
-                                      : EduQuestColors.success,
-                            ),
-                            child: Text(isActive ? 'Disable' : 'Enable'),
-                          ),
+                        AppInfoChip(
+                          label: isActive ? 'Active' : 'Suspended',
+                          color:
+                              isActive
+                                  ? EduQuestColors.success
+                                  : EduQuestColors.danger,
+                        ),
+                        AppInfoChip(
+                          label: '${user['xp'] ?? 0} XP',
+                          color: EduQuestColors.secondary,
+                        ),
+                        AppInfoChip(
+                          label:
+                              'Lvl ${user['level'] ?? 1} • ${user['streak'] ?? 0}d',
+                          color: EduQuestColors.primary,
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+                    AdaptiveTwoPane(
+                      first: OutlinedButton(
+                        onPressed: () => _changeRole(user['id'], role),
+                        child: const Text('Change role'),
+                      ),
+                      second: ElevatedButton(
+                        onPressed:
+                            () => _toggleUserStatus(user['id'], isActive),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isActive
+                                  ? EduQuestColors.danger
+                                  : EduQuestColors.success,
+                        ),
+                        child: Text(isActive ? 'Disable' : 'Enable'),
+                      ),
                     ),
                   ],
                 ),
@@ -460,6 +498,15 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Widget _buildReportsTab() {
     final metrics = platformStatus?['metrics'] as Map<String, dynamic>? ?? {};
+    final roleDistribution =
+        platformStatus?['role_distribution'] as Map<String, dynamic>? ??
+        <String, dynamic>{};
+    final activeCounts =
+        platformStatus?['active_vs_inactive_users'] as Map<String, dynamic>? ??
+        <String, dynamic>{};
+    final configSnapshot =
+        platformStatus?['config_snapshot'] as Map<String, dynamic>? ??
+        <String, dynamic>{};
 
     return ListView(
       children: [
@@ -469,65 +516,85 @@ class _AdminScreenState extends State<AdminScreen> {
               'Aggregated signals for audit-style readouts and operating awareness.',
         ),
         const SizedBox(height: 12),
+        ResponsiveStatsGrid(
+          children: [
+            AppStatCard(
+              label: 'Active users',
+              value: '${activeCounts['active'] ?? 0}',
+              icon: Icons.person_pin_circle_outlined,
+              color: EduQuestColors.success,
+            ),
+            AppStatCard(
+              label: 'Inactive users',
+              value: '${activeCounts['inactive'] ?? 0}',
+              icon: Icons.person_off_outlined,
+              color: EduQuestColors.danger,
+            ),
+            AppStatCard(
+              label: 'AI activity',
+              value: '${platformStatus?['recent_ai_activity_count'] ?? 0}',
+              icon: Icons.smart_toy_outlined,
+              color: EduQuestColors.info,
+            ),
+            AppStatCard(
+              label: 'Lessons',
+              value: '${metrics['lessons'] ?? 0}',
+              icon: Icons.view_list_outlined,
+              color: EduQuestColors.secondary,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         AppSurface(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Current report snapshot',
+                'Role distribution',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  AppInfoChip(
+                    label: 'Students ${roleDistribution['student'] ?? 0}',
+                    color: EduQuestColors.primary,
+                  ),
+                  AppInfoChip(
+                    label: 'Teachers ${roleDistribution['teacher'] ?? 0}',
+                    color: EduQuestColors.info,
+                  ),
+                  AppInfoChip(
+                    label: 'Admins ${roleDistribution['admin'] ?? 0}',
+                    color: EduQuestColors.secondary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Policy snapshot',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 10),
               ...[
-                'Users tracked: ${metrics['users'] ?? 0}',
-                'Courses published: ${metrics['courses'] ?? 0}',
-                'Lessons available: ${metrics['lessons'] ?? 0}',
-                'Quizzes published: ${metrics['quizzes'] ?? 0}',
+                'AI safety: ${configSnapshot['ai_safety'] == true ? 'Enabled' : 'Disabled'}',
+                'Retries: ${configSnapshot['retries_enabled'] == true ? 'Enabled' : 'Disabled'}',
+                'XP per quiz: ${configSnapshot['xp_per_quiz'] ?? 100}',
                 'Attempts logged: ${metrics['attempts'] ?? 0}',
               ].map(
                 (line) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.arrow_right,
-                        color: EduQuestColors.secondary,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(child: Text(line)),
-                    ],
+                  child: Text(
+                    line,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        ...List.generate(2, (index) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: AppSurface(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    index == 0
-                        ? 'Policy audit placeholder'
-                        : 'Operational trend placeholder',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    index == 0
-                        ? 'This surface reserves space for explicit governance summaries tied to the diploma architecture.'
-                        : 'This surface reserves space for later richer trend reporting once analytics depth increases.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
       ],
     );
   }
