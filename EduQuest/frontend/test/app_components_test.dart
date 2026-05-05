@@ -42,6 +42,68 @@ void main() {
 
     expect(find.text('Everything synced'), findsOneWidget);
   });
+
+  testWidgets('ResponsiveStatsGrid stacks on narrow widths', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildEduQuestTheme(),
+        home: Scaffold(
+          body: ResponsiveStatsGrid(
+            children: const [
+              AppStatCard(
+                label: 'XP',
+                value: '1200',
+                icon: Icons.bolt_outlined,
+                color: EduQuestColors.primary,
+              ),
+              AppStatCard(
+                label: 'Level',
+                value: '4',
+                icon: Icons.stars_outlined,
+                color: EduQuestColors.secondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final xpTopLeft = tester.getTopLeft(find.text('1200'));
+    final levelTopLeft = tester.getTopLeft(find.text('4'));
+    expect(levelTopLeft.dy, greaterThan(xpTopLeft.dy));
+  });
+
+  testWidgets('EduQuestShell keeps subtitle out of app bar title', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildEduQuestTheme(),
+        home: EduQuestShell(
+          title: 'Teacher workspace',
+          subtitle: 'Compact subtitle inside shell body',
+          currentIndex: 0,
+          destinations: const [
+            ShellDestination(label: 'One', icon: Icons.looks_one_outlined),
+            ShellDestination(label: 'Two', icon: Icons.looks_two_outlined),
+          ],
+          onSelect: _noopSelect,
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+
+    expect(find.text('Teacher workspace'), findsOneWidget);
+    expect(find.text('Compact subtitle inside shell body'), findsOneWidget);
+    expect(find.byType(AppShellIntro), findsOneWidget);
+  });
 }
 
 void _noop() {}
+void _noopSelect(int _) {}

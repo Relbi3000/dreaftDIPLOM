@@ -313,6 +313,90 @@ class ApiService {
     return [];
   }
 
+  static Future<Map<String, dynamic>?> getTeacherAnalyticsSummary() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/teacher/analytics-summary'),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<List<dynamic>> getTeacherAssignments() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/teacher/assignments'),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<Map<String, dynamic>?> createTeacherAssignment({
+    required int quizId,
+    required int courseId,
+    required String title,
+    required String instructions,
+    String? dueAt,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/teacher/assignments'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'quiz_id': quizId,
+          'course_id': courseId,
+          'title': title,
+          'instructions': instructions,
+          'due_at': dueAt,
+        }),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> updateTeacherAssignment({
+    required int assignmentId,
+    required int quizId,
+    required int courseId,
+    required String title,
+    required String instructions,
+    String? dueAt,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/teacher/assignments/$assignmentId'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'quiz_id': quizId,
+          'course_id': courseId,
+          'title': title,
+          'instructions': instructions,
+          'due_at': dueAt,
+        }),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> publishTeacherAssignment(
+    int assignmentId,
+  ) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/teacher/assignments/$assignmentId/publish'),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
   // Teacher Content Management
   static Future<bool> createCourse(String title, String description) async {
     try {
