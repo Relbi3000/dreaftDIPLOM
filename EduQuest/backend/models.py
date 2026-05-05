@@ -1,6 +1,26 @@
-from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Float
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Float, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from database import Base
+
+class SystemConfig(Base):
+    __tablename__ = "system_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ai_safety = Column(Boolean, default=True)
+    retries_enabled = Column(Boolean, default=True)
+    xp_per_quiz = Column(Integer, default=100)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+class AILog(Base):
+    __tablename__ = "ai_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    context = Column(String)
+    question = Column(String)
+    hint = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
 class User(Base):
     __tablename__ = "users"
@@ -10,6 +30,7 @@ class User(Base):
     full_name = Column(String)
     hashed_password = Column(String)
     role = Column(String, default="student") # student, teacher, admin
+    is_active = Column(Boolean, default=True)
 
     profile = relationship("GamificationProfile", back_populates="user", uselist=False)
 
@@ -32,6 +53,7 @@ class Course(Base):
     description = Column(String)
     
     lessons = relationship("Lesson", back_populates="course")
+    assignments = relationship("Assignment", back_populates="course")
 
 class Lesson(Base):
     __tablename__ = "lessons"
@@ -44,6 +66,14 @@ class Lesson(Base):
     
     course = relationship("Course", back_populates="lessons")
 
+class CompletedLesson(Base):
+    __tablename__ = "completed_lessons"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    lesson_id = Column(Integer, ForeignKey("lessons.id"))
+    completed_at = Column(DateTime, default=datetime.utcnow)
+
 class Quiz(Base):
     __tablename__ = "quizzes"
 
@@ -51,6 +81,7 @@ class Quiz(Base):
     lesson_id = Column(Integer, ForeignKey("lessons.id"))
     title = Column(String)
     questions = Column(String) # Stored as JSON string for simplicity in MVP
+    assignments = relationship("Assignment", back_populates="quiz")
     
 class Attempt(Base):
     __tablename__ = "attempts"
@@ -60,3 +91,21 @@ class Attempt(Base):
     quiz_id = Column(Integer, ForeignKey("quizzes.id"))
     score = Column(Float)
     earned_xp = Column(Integer)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Assignment(Base):
+    __tablename__ = "assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quiz_id = Column(Integer, ForeignKey("quizzes.id"))
+    course_id = Column(Integer, ForeignKey("courses.id"))
+    title = Column(String, index=True)
+    instructions = Column(String, default="")
+    due_at = Column(DateTime, nullable=True)
+    is_published = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    quiz = relationship("Quiz", back_populates="assignments")
+    course = relationship("Course", back_populates="assignments")
+
