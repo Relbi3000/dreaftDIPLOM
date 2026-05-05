@@ -42,7 +42,7 @@ def _lesson_summary(db: Session, lesson: models.Lesson) -> dict:
     content = lesson.content or ""
     summary = content[:140].strip()
     if len(content) > 140:
-      summary = f"{summary}..."
+        summary = f"{summary}..."
     return {
         "id": lesson.id,
         "title": lesson.title,
@@ -53,6 +53,14 @@ def _lesson_summary(db: Session, lesson: models.Lesson) -> dict:
         "estimated_minutes": 15 + (quiz_count * 5),
         "summary": summary,
     }
+
+
+def _question_count(quiz: models.Quiz) -> int:
+    try:
+        questions = json.loads(quiz.questions or "[]")
+        return len(questions) if isinstance(questions, list) else 0
+    except (TypeError, json.JSONDecodeError):
+        return 0
 
 
 class LessonSchema(BaseModel):
@@ -74,6 +82,21 @@ class CourseSchema(BaseModel):
     quiz_count: int
     difficulty: str
     estimated_effort: str
+
+
+class CourseQuizSummarySchema(BaseModel):
+    id: int
+    title: str
+    question_count: int
+
+
+class CourseLessonContentSchema(LessonSchema):
+    quizzes: list[CourseQuizSummarySchema]
+
+
+class CourseContentMapSchema(BaseModel):
+    course: CourseSchema
+    lessons: list[CourseLessonContentSchema]
 
 
 @router.get("/", response_model=List[CourseSchema])
@@ -101,6 +124,52 @@ def get_lessons(course_id: int, db: Session = Depends(database.get_db)):
     if not lessons:
         return []
     return [_lesson_summary(db, lesson) for lesson in lessons]
+
+
+@router.get("/{course_id}/content-map", response_model=CourseContentMapSchema)
+def get_course_content_map(course_id: int, db: Session = Depends(database.get_db)):
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    lessons = (
+        db.query(models.Lesson)
+        .filter(models.Lesson.course_id == course_id)
+        .order_by(models.Lesson.order)
+        .all()
+    )
+
+    lesson_payloads = []
+    for lesson in lessons:
+        quizzes = (
+            db.query(models.Quiz)
+            .filter(models.Quiz.lesson_id == lesson.id)
+            .order_by(models.Quiz.id)
+            .all()
+        )
+        lesson_payloads.append(
+            {
+                **_lesson_summary(db, lesson),
+                "quizzes": [
+                    {
+                        "id": quiz.id,
+                        "title": quiz.title,
+                        "question_count": _question_count(quiz),
+                    }
+                    for quiz in quizzes
+                ],
+            }
+        )
+
+    return {
+        "course": {
+            "id": course.id,
+            "title": course.title,
+            "description": course.description,
+            **_course_metadata(db, course),
+        },
+        "lessons": lesson_payloads,
+    }
 
 
 @router.get("/lessons/{lesson_id}", response_model=LessonSchema)

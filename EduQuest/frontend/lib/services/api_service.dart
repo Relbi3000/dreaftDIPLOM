@@ -186,6 +186,17 @@ class ApiService {
     return [];
   }
 
+  static Future<Map<String, dynamic>?> getCourseContentMap(int courseId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/courses/$courseId/content-map'),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
   static Future<Map<String, dynamic>?> getQuiz(int lessonId) async {
     try {
       final response = await http.get(
@@ -398,19 +409,22 @@ class ApiService {
   }
 
   // Teacher Content Management
-  static Future<bool> createCourse(String title, String description) async {
+  static Future<Map<String, dynamic>?> createCourse(
+    String title,
+    String description,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/teacher/courses'),
         headers: await _getHeaders(),
         body: jsonEncode({'title': title, 'description': description}),
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (_) {}
-    return false;
+    return null;
   }
 
-  static Future<bool> createLesson(
+  static Future<Map<String, dynamic>?> createLesson(
     int courseId,
     String title,
     String content,
@@ -427,12 +441,12 @@ class ApiService {
           'order': order,
         }),
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (_) {}
-    return false;
+    return null;
   }
 
-  static Future<bool> createQuiz(
+  static Future<Map<String, dynamic>?> createQuiz(
     int lessonId,
     String title,
     List<dynamic> questions,
@@ -447,9 +461,9 @@ class ApiService {
           'questions': questions,
         }),
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (_) {}
-    return false;
+    return null;
   }
 
   static Future<List<dynamic>> getUsers() async {
