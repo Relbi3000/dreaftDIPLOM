@@ -33,6 +33,8 @@ class EduQuestShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 390;
+
     return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -43,27 +45,34 @@ class EduQuestShell extends StatelessWidget {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title),
-              Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
-          actions: actions,
-        ),
+        appBar: AppBar(title: Text(title), actions: actions),
         body: SafeArea(
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: child,
+          child: Column(
+            children: [
+              if (subtitle.trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: AppShellIntro(text: subtitle),
+                ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: child,
+                ),
+              ),
+            ],
           ),
         ),
         floatingActionButton: floatingActionButton,
         bottomNavigationBar: NavigationBar(
+          height: narrow ? 72 : 84,
           selectedIndex: currentIndex,
           onDestinationSelected: onSelect,
+          labelBehavior:
+              narrow
+                  ? NavigationDestinationLabelBehavior.onlyShowSelected
+                  : NavigationDestinationLabelBehavior.alwaysShow,
           destinations:
               destinations
                   .map(
@@ -74,6 +83,31 @@ class EduQuestShell extends StatelessWidget {
                   )
                   .toList(),
         ),
+      ),
+    );
+  }
+}
+
+class AppShellIntro extends StatelessWidget {
+  final String text;
+
+  const AppShellIntro({required this.text, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: EduQuestColors.surface.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: EduQuestColors.border),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: Colors.white70, height: 1.45),
       ),
     );
   }
@@ -93,20 +127,40 @@ class AppSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stack = constraints.maxWidth < 420 && trailing != null;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!stack)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildText(context)),
+                  if (trailing != null) const SizedBox(width: 12),
+                  if (trailing != null) trailing!,
+                ],
+              )
+            else ...[
+              _buildText(context),
+              const SizedBox(height: 12),
+              trailing!,
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildText(BuildContext context) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 4),
-              Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
-        ),
-        if (trailing != null) trailing!,
+        Text(title, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 4),
+        Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
@@ -140,12 +194,15 @@ class AppInfoChip extends StatelessWidget {
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 6),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
             ),
           ),
         ],
@@ -177,13 +234,14 @@ class AppStatCard extends StatelessWidget {
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             CircleAvatar(
               radius: 22,
               backgroundColor: color.withValues(alpha: 0.14),
               child: Icon(icon, color: color),
             ),
-            const Spacer(),
+            const SizedBox(height: 18),
             Text(
               value,
               style: Theme.of(
@@ -204,6 +262,74 @@ class AppStatCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class ResponsiveStatsGrid extends StatelessWidget {
+  final List<Widget> children;
+  final double spacing;
+
+  const ResponsiveStatsGrid({
+    required this.children,
+    super.key,
+    this.spacing = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth < 390 ? 1 : 2;
+        final itemWidth =
+            columns == 1
+                ? constraints.maxWidth
+                : (constraints.maxWidth - spacing) / 2;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children:
+              children
+                  .map((child) => SizedBox(width: itemWidth, child: child))
+                  .toList(),
+        );
+      },
+    );
+  }
+}
+
+class AdaptiveTwoPane extends StatelessWidget {
+  final Widget first;
+  final Widget second;
+  final double spacing;
+  final double collapseWidth;
+
+  const AdaptiveTwoPane({
+    required this.first,
+    required this.second,
+    super.key,
+    this.spacing = 12,
+    this.collapseWidth = 430,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < collapseWidth) {
+          return Column(children: [first, SizedBox(height: spacing), second]);
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: first),
+            SizedBox(width: spacing),
+            Expanded(child: second),
+          ],
+        );
+      },
     );
   }
 }
@@ -234,6 +360,7 @@ class AppActionCard extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               CircleAvatar(
                 radius: 21,
@@ -419,4 +546,39 @@ class AppSurface extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<T?> showAppModalSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) {
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 12,
+            right: 12,
+            top: 12,
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 12,
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: EduQuestColors.bgElevated,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: EduQuestColors.border),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: builder(sheetContext),
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
