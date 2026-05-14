@@ -221,7 +221,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  initialValue: selectedCourseId,
+                  value: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -351,7 +351,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  initialValue: selectedCourseId,
+                  value: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -379,7 +379,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  initialValue: selectedLessonId,
+                  value: selectedLessonId,
                   items:
                       lessons
                           .map(
@@ -529,7 +529,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  initialValue: selectedCourseId,
+                  value: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -557,7 +557,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  initialValue: selectedQuizId,
+                  value: selectedQuizId,
                   items:
                       quizOptions
                           .map(
