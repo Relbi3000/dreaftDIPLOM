@@ -33,6 +33,7 @@ def _quiz_summary(quiz: models.Quiz) -> dict:
         "id": quiz.id,
         "lesson_id": quiz.lesson_id,
         "title": quiz.title,
+        "xp_reward": quiz.xp_reward or 100,
         "question_count": _quiz_question_count(quiz),
     }
 
@@ -121,6 +122,7 @@ class QuizCreate(BaseModel):
     lesson_id: int
     title: str
     questions: list
+    xp_reward: int = 100
 
 
 class AssignmentCreate(BaseModel):
@@ -171,7 +173,17 @@ def create_quiz(quiz: QuizCreate, db: Session = Depends(database.get_db), curren
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    new_quiz = models.Quiz(lesson_id=quiz.lesson_id, title=quiz.title, questions=json.dumps(quiz.questions))
+    if not quiz.questions:
+        raise HTTPException(status_code=400, detail="Quiz must contain at least one question")
+    if quiz.xp_reward < 0 or quiz.xp_reward > 500:
+        raise HTTPException(status_code=400, detail="XP reward must be between 0 and 500")
+
+    new_quiz = models.Quiz(
+        lesson_id=quiz.lesson_id,
+        title=quiz.title,
+        xp_reward=quiz.xp_reward,
+        questions=json.dumps(quiz.questions),
+    )
     db.add(new_quiz)
     db.commit()
     db.refresh(new_quiz)

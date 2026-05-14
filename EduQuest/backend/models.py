@@ -80,6 +80,7 @@ class Quiz(Base):
     id = Column(Integer, primary_key=True, index=True)
     lesson_id = Column(Integer, ForeignKey("lessons.id"))
     title = Column(String)
+    xp_reward = Column(Integer, default=100)
     questions = Column(String) # Stored as JSON string for simplicity in MVP
     assignments = relationship("Assignment", back_populates="quiz")
     

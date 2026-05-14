@@ -31,6 +31,7 @@ def _course_metadata(db: Session, course: models.Course) -> dict:
     )
     return {
         "lesson_count": lesson_count,
+        "lesson_ids": [lesson.id for lesson in lessons],
         "quiz_count": quiz_count,
         "difficulty": difficulty,
         "estimated_effort": f"{effort_hours}-{effort_hours + 1} hrs",
@@ -40,8 +41,20 @@ def _course_metadata(db: Session, course: models.Course) -> dict:
 def _lesson_summary(db: Session, lesson: models.Lesson) -> dict:
     quiz_count = _quiz_count_for_lesson(db, lesson.id)
     content = lesson.content or ""
-    summary = content[:140].strip()
-    if len(content) > 140:
+    summary_source = content
+    try:
+        structured = json.loads(content)
+        if isinstance(structured, dict):
+            summary_source = (
+                structured.get("hook")
+                or structured.get("explanation")
+                or structured.get("legacyText")
+                or content
+            )
+    except (TypeError, json.JSONDecodeError):
+        summary_source = content
+    summary = str(summary_source)[:140].strip()
+    if len(str(summary_source)) > 140:
         summary = f"{summary}..."
     return {
         "id": lesson.id,
@@ -79,6 +92,7 @@ class CourseSchema(BaseModel):
     title: str
     description: str
     lesson_count: int
+    lesson_ids: List[int]
     quiz_count: int
     difficulty: str
     estimated_effort: str
@@ -87,6 +101,7 @@ class CourseSchema(BaseModel):
 class CourseQuizSummarySchema(BaseModel):
     id: int
     title: str
+    xp_reward: int
     question_count: int
 
 
@@ -154,6 +169,7 @@ def get_course_content_map(course_id: int, db: Session = Depends(database.get_db
                     {
                         "id": quiz.id,
                         "title": quiz.title,
+                        "xp_reward": quiz.xp_reward or 100,
                         "question_count": _question_count(quiz),
                     }
                     for quiz in quizzes

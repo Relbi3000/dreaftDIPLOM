@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
@@ -313,10 +311,17 @@ class _TeacherScreenState extends State<TeacherScreen> {
             ? (availableLessons.first['id'] as num).toInt()
             : null;
     final titleController = TextEditingController();
-    final questionsController = TextEditingController(
-      text:
-          '[{"q":"What does API stand for?","options":["Application Programming Interface","Applied Process Input","Abstract Product Integration","Automated Program Index"],"answer":0}]',
-    );
+    final xpController = TextEditingController(text: '100');
+    final questionController = TextEditingController();
+    final codeController = TextEditingController();
+    final explanationController = TextEditingController();
+    final hintController = TextEditingController();
+    final topicController = TextEditingController(text: 'teacher-created');
+    final optionControllers = List.generate(4, (_) => TextEditingController());
+    final questions = <Map<String, dynamic>>[];
+    String questionType = 'mcq';
+    String difficulty = 'easy';
+    int correctIndex = 0;
     final messenger = ScaffoldMessenger.of(context);
 
     await showAppModalSheet<void>(
@@ -326,6 +331,13 @@ class _TeacherScreenState extends State<TeacherScreen> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             final lessons = _lessonsForCourse(selectedCourseId);
+            final currentOptions =
+                questionType == 'true_false'
+                    ? const ['True', 'False']
+                    : optionControllers
+                        .map((controller) => controller.text.trim())
+                        .where((value) => value.isNotEmpty)
+                        .toList();
             selectedLessonId =
                 lessons.any(
                       (lesson) =>
@@ -335,6 +347,74 @@ class _TeacherScreenState extends State<TeacherScreen> {
                     : (lessons.isNotEmpty
                         ? (lessons.first['id'] as num).toInt()
                         : null);
+
+            Map<String, dynamic>? buildDraftQuestion({required bool warn}) {
+              final prompt = questionController.text.trim();
+              final options =
+                  questionType == 'true_false'
+                      ? const ['True', 'False']
+                      : optionControllers
+                          .map((controller) => controller.text.trim())
+                          .where((value) => value.isNotEmpty)
+                          .toList();
+              if (prompt.isEmpty) {
+                if (warn) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Question text is required')),
+                  );
+                }
+                return null;
+              }
+              if (options.length < 2) {
+                if (warn) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Add at least two answer options'),
+                    ),
+                  );
+                }
+                return null;
+              }
+              final safeCorrectIndex =
+                  correctIndex.clamp(0, options.length - 1).toInt();
+              final question = <String, dynamic>{
+                'type': questionType,
+                'q': prompt,
+                'question': prompt,
+                'options': options,
+                'answer': safeCorrectIndex,
+                'correctIndex': safeCorrectIndex,
+                'explanation': explanationController.text.trim().isEmpty
+                    ? 'Review the lesson concept and compare it with the selected answer.'
+                    : explanationController.text.trim(),
+                'difficulty': difficulty,
+                'topicTag': topicController.text.trim().isEmpty
+                    ? 'teacher-created'
+                    : topicController.text.trim(),
+                'hint': hintController.text.trim().isEmpty
+                    ? 'Look for the option that best matches the lesson objective.'
+                    : hintController.text.trim(),
+              };
+              if (questionType == 'code_output' &&
+                  codeController.text.trim().isNotEmpty) {
+                question['code'] = codeController.text.trim();
+              }
+              return question;
+            }
+
+            void resetDraft() {
+              questionController.clear();
+              codeController.clear();
+              explanationController.clear();
+              hintController.clear();
+              topicController.text = 'teacher-created';
+              for (final controller in optionControllers) {
+                controller.clear();
+              }
+              correctIndex = 0;
+              questionType = 'mcq';
+              difficulty = 'easy';
+            }
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,7 +426,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Attach a quiz to an existing lesson instead of hunting for raw IDs.',
+                  'Build a student-ready quiz with fields, options, explanations, hints, and teacher-controlled XP.',
                   style: Theme.of(sheetContext).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 16),
@@ -412,11 +492,192 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: questionsController,
-                  minLines: 5,
-                  maxLines: 8,
-                  decoration: const InputDecoration(labelText: 'Questions JSON'),
+                  controller: xpController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'XP reward',
+                    helperText: 'Teacher-controlled reward for this quiz.',
+                  ),
                 ),
+                const SizedBox(height: 16),
+                Text(
+                  'Question builder',
+                  style: Theme.of(sheetContext).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: questionType,
+                  items: const [
+                    DropdownMenuItem(value: 'mcq', child: Text('Multiple choice')),
+                    DropdownMenuItem(value: 'true_false', child: Text('True / false')),
+                    DropdownMenuItem(value: 'code_output', child: Text('Code output')),
+                    DropdownMenuItem(value: 'fill_gap', child: Text('Fill gap')),
+                    DropdownMenuItem(value: 'ordering', child: Text('Ordering')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setSheetState(() {
+                      questionType = value;
+                      correctIndex = 0;
+                    });
+                  },
+                  decoration: const InputDecoration(labelText: 'Question type'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: questionController,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(labelText: 'Question text'),
+                ),
+                if (questionType == 'code_output') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: codeController,
+                    minLines: 3,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                      labelText: 'Code block',
+                      helperText: 'Optional code shown above the answers.',
+                    ),
+                  ),
+                ],
+                if (questionType != 'true_false') ...[
+                  const SizedBox(height: 12),
+                  ...List.generate(optionControllers.length, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: TextField(
+                        controller: optionControllers[index],
+                        onChanged: (_) => setSheetState(() {}),
+                        decoration: InputDecoration(
+                          labelText: 'Option ${index + 1}',
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  value:
+                      correctIndex < currentOptions.length
+                          ? correctIndex
+                          : 0,
+                  items:
+                      List.generate(
+                        currentOptions.isEmpty ? 2 : currentOptions.length,
+                        (index) => DropdownMenuItem<int>(
+                          value: index,
+                          child: Text(
+                            currentOptions.isNotEmpty
+                                ? currentOptions[index]
+                                : 'Option ${index + 1}',
+                          ),
+                        ),
+                      ).toList(),
+                  onChanged: (value) {
+                    setSheetState(() => correctIndex = value ?? 0);
+                  },
+                  decoration: const InputDecoration(labelText: 'Correct answer'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: difficulty,
+                  items: const [
+                    DropdownMenuItem(value: 'easy', child: Text('Easy')),
+                    DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                    DropdownMenuItem(value: 'hard', child: Text('Hard')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setSheetState(() => difficulty = value);
+                  },
+                  decoration: const InputDecoration(labelText: 'Difficulty'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: topicController,
+                  decoration: const InputDecoration(labelText: 'Topic tag'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: hintController,
+                  decoration: const InputDecoration(labelText: 'Hint'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: explanationController,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Answer explanation',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final draft = buildDraftQuestion(warn: true);
+                    if (draft == null) return;
+                    setSheetState(() {
+                      questions.add(draft);
+                      resetDraft();
+                    });
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add question'),
+                ),
+                const SizedBox(height: 12),
+                if (questions.isEmpty)
+                  const AppStatusBanner(
+                    message:
+                        'No questions added yet. You can add questions one by one, or create with the current draft.',
+                    color: EduQuestColors.info,
+                    icon: Icons.info_outline,
+                  )
+                else
+                  ...List.generate(questions.length, (index) {
+                    final item = questions[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: AppSurface(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AppInfoChip(
+                              label: '${index + 1}',
+                              color: EduQuestColors.secondary,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item['q']?.toString() ?? 'Question',
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${item['type']} - ${item['difficulty']} - ${item['topicTag']}',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove question',
+                              onPressed: () {
+                                setSheetState(() => questions.removeAt(index));
+                              },
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
                 const SizedBox(height: 18),
                 AdaptiveTwoPane(
                   collapseWidth: 360,
@@ -429,36 +690,67 @@ class _TeacherScreenState extends State<TeacherScreen> {
                         selectedLessonId == null
                             ? null
                             : () async {
-                              try {
-                                final response = await ApiService.createQuiz(
-                                  selectedLessonId!,
-                                  titleController.text.trim(),
-                                  jsonDecode(questionsController.text)
-                                      as List<dynamic>,
-                                );
-                                if (!mounted) return;
-                                navigator.pop();
+                              final payload = <Map<String, dynamic>>[
+                                ...questions,
+                              ];
+                              final pendingDraft = buildDraftQuestion(
+                                warn: questions.isEmpty,
+                              );
+                              if (pendingDraft != null) {
+                                payload.add(pendingDraft);
+                              }
+                              final title = titleController.text.trim();
+                              final xpReward =
+                                  int.tryParse(xpController.text.trim()) ??
+                                      -1;
+                              if (title.isEmpty) {
                                 messenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      response != null
-                                          ? 'Quiz "${response['title']}" created'
-                                          : 'Failed to create quiz',
-                                    ),
+                                  const SnackBar(
+                                    content: Text('Quiz title is required'),
                                   ),
                                 );
-                                if (response != null) {
-                                  _courseContentCache.remove(selectedCourseId);
-                                  await _loadData();
-                                }
-                              } catch (_) {
+                                return;
+                              }
+                              if (payload.isEmpty) {
                                 messenger.showSnackBar(
                                   const SnackBar(
                                     content: Text(
-                                      'Questions JSON is invalid or incomplete',
+                                      'Add at least one question before creating the quiz',
                                     ),
                                   ),
                                 );
+                                return;
+                              }
+                              if (xpReward < 0 || xpReward > 500) {
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'XP reward must be between 0 and 500',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              final response = await ApiService.createQuiz(
+                                selectedLessonId!,
+                                title,
+                                payload,
+                                xpReward,
+                              );
+                              if (!mounted) return;
+                              navigator.pop();
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    response != null
+                                        ? 'Quiz "${response['title']}" created'
+                                        : 'Failed to create quiz',
+                                  ),
+                                ),
+                              );
+                              if (response != null) {
+                                _courseContentCache.remove(selectedCourseId);
+                                await _loadData();
                               }
                             },
                     child: const Text('Create'),
@@ -564,7 +856,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                             (quiz) => DropdownMenuItem<int>(
                               value: (quiz['id'] as num).toInt(),
                               child: Text(
-                                '${quiz['title']} (${quiz['lesson_title']})',
+                                '${quiz['title']} (${quiz['lesson_title']}, ${quiz['xp_reward'] ?? 100} XP)',
                               ),
                             ),
                           )
@@ -909,7 +1201,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
         AppActionCard(
           title: 'Create quiz',
           subtitle:
-              'Publish an assessment payload that students can practice against.',
+              'Build questions, answer feedback, hints, and XP without raw JSON.',
           icon: Icons.quiz_outlined,
           color: EduQuestColors.info,
           onTap: _showCreateQuizSheet,

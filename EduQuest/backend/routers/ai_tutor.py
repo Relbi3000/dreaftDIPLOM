@@ -18,6 +18,9 @@ class ReviewMistake(BaseModel):
     options: list[str]
     user_answer_index: int
     correct_answer_index: int
+    explanation: str | None = None
+    hint: str | None = None
+    topicTag: str | None = None
 
 
 class ReviewRequest(BaseModel):
@@ -70,12 +73,20 @@ def _build_review_item(mistake: ReviewMistake) -> dict:
         else "No answer selected"
     )
 
+    explanation = mistake.explanation or _concept_explanation(mistake.question, correct_answer)
+    if mistake.topicTag:
+        explanation = f"Topic: {mistake.topicTag}. {explanation}"
+
+    next_step = _wrong_choice_feedback(user_answer, correct_answer)
+    if mistake.hint:
+        next_step = f"{next_step} Hint to remember: {mistake.hint}"
+
     return {
         "question": mistake.question,
         "your_answer": user_answer,
         "correct_answer": correct_answer,
-        "explanation": _concept_explanation(mistake.question, correct_answer),
-        "why_your_answer_was_wrong": _wrong_choice_feedback(user_answer, correct_answer),
+        "explanation": explanation,
+        "why_your_answer_was_wrong": next_step,
     }
 
 
@@ -109,10 +120,27 @@ def request_hint(request: HintRequest, db: Session = Depends(database.get_db), c
     safety_enabled = config.ai_safety if config else True
     
     query = request.user_question.lower()
+    context = request.context.lower()
     hint_response = ""
     
-    if safety_enabled and ("hack" in query or "bypass" in query or "answer" in query):
+    if safety_enabled and ("hack" in query or "bypass" in query):
         hint_response = "[Blocked by AI Safety] I cannot provide direct answers or inappropriate content. Please try to solve the problem yourself!"
+    elif "hint:" in context:
+        hint_response = request.context.split("hint:", 1)[1].strip()
+    elif "indentation" in context or "indentation" in query:
+        hint_response = "For Python indentation, follow the left edge of each line. Indented lines belong to the block above them."
+    elif "html" in context or "html" in query:
+        hint_response = "For HTML, ask what the tag means structurally before thinking about how it looks."
+    elif "css" in context or "css" in query or "layout" in context:
+        hint_response = "For CSS, separate content, padding, border, margin, and layout. Visual layers make the rule easier to reason about."
+    elif "server" in context or "api" in context or "request" in query:
+        hint_response = "Trace the request-response loop: client sends data, server validates or computes, then the UI renders the response."
+    elif "validation" in context or "validation" in query:
+        hint_response = "Validation is a safety check before data is trusted. Client checks help users, server checks protect the system."
+    elif "dictionary" in context or "key" in query:
+        hint_response = "For dictionaries, identify the key first, then read or update the value stored under that key."
+    elif "variable" in context or "variable" in query:
+        hint_response = "A variable is a named place for a value. Check the value type before deciding what operation is valid."
     elif "array" in query or "list" in query:
         hint_response = "An array is a data structure consisting of a collection of elements. Think of it like a row of mailboxes."
     elif "loop" in query or "for" in query or "while" in query:

@@ -15,7 +15,7 @@ def _lesson_content(
     practice: str,
     recap: str,
 ) -> str:
-    return "\n\n".join(
+    plain_text = "\n\n".join(
         [
             f"Introduction\n{intro}",
             "Learning objectives\n" + "\n".join(f"- {item}" for item in objectives),
@@ -27,6 +27,251 @@ def _lesson_content(
             f"Recap\n{recap}",
         ]
     )
+    return json.dumps(
+        {
+            "version": 1,
+            "hook": intro,
+            "objectives": objectives,
+            "concepts": _concept_cards(key_concepts),
+            "explanation": explanation,
+            "example": {
+                "title": "Worked example",
+                "kind": _example_kind(example),
+                "body": example,
+            },
+            "visual": _visual_payload(intro, explanation, example),
+            "visualBlocks": _visual_blocks(intro, explanation, example),
+            "didYouKnow": _did_you_know_payload(intro, explanation, example),
+            "flashcards": _flashcards_payload(key_concepts),
+            "mistakes": common_mistakes,
+            "practice": _practice_payload(key_concepts, practice),
+            "recap": recap,
+            "finalChallenge": _final_challenge_payload(practice, recap),
+            "legacyText": plain_text,
+        }
+    )
+
+
+def _concept_cards(key_concepts: list[str]) -> list[dict]:
+    cards = []
+    for index, concept in enumerate(key_concepts, start=1):
+        title, _, body = concept.partition(" is ")
+        if body:
+            body = f"is {body}"
+        else:
+            title = f"Concept {index}"
+            body = concept
+        cards.append({"title": title.strip("."), "body": body.strip()})
+    return cards
+
+
+def _example_kind(example: str) -> str:
+    code_signals = ["\n", "=", "<", ">", "def ", "for ", "if ", "{", "}"]
+    return "code" if any(signal in example for signal in code_signals) else "scenario"
+
+
+def _visual_payload(intro: str, explanation: str, example: str) -> dict:
+    source = f"{intro} {explanation} {example}".lower()
+    if "html" in source or "<h1>" in source or "<p>" in source:
+        return {
+            "kind": "html-tree",
+            "title": "Visual model: HTML tree",
+            "body": "Imagine the page as a tree: headings, paragraphs, links, and lists each become visible branches of meaning.",
+        }
+    if "css" in source or "padding" in source or "layout" in source:
+        return {
+            "kind": "box-model",
+            "title": "Visual model: CSS box model",
+            "body": "Picture every element as content wrapped by padding, border, and margin. Layout becomes easier when those layers are visible.",
+        }
+    if "request" in source or "server" in source or "api" in source or "json" in source:
+        return {
+            "kind": "client-server",
+            "title": "Visual model: client-server loop",
+            "body": "The mobile app sends a request, the backend checks data, and the response returns structured information for the UI.",
+        }
+    if "algorithm" in source or "step" in source:
+        return {
+            "kind": "algorithm-steps",
+            "title": "Visual model: step-by-step path",
+            "body": "Each instruction is a checkpoint. The result is reliable only when the checkpoints are ordered and complete.",
+        }
+    if "traceback" in source or "error" in source or "debug" in source:
+        return {
+            "kind": "debug-trace",
+            "title": "Visual model: trace the error",
+            "body": "Start from the visible symptom, read the message, inspect the named line, then test one focused fix.",
+        }
+    if "loop" in source or "list" in source:
+        return {
+            "kind": "loop-flow",
+            "title": "Visual model: repeat over items",
+            "body": "A loop moves across a collection one item at a time, applying the same action until the collection is finished.",
+        }
+    return {
+        "kind": "concept-map",
+        "title": "Visual model: concept map",
+        "body": "Connect the concept, example, mistake, and practice task so the topic becomes easier to remember.",
+    }
+
+
+def _visual_blocks(intro: str, explanation: str, example: str) -> list[dict]:
+    source = f"{intro} {explanation} {example}".lower()
+    blocks = []
+
+    if "html" in source or "<h1>" in source or "<p>" in source:
+        blocks.append(
+            {
+                "kind": "html-tree",
+                "title": "HTML tree",
+                "body": "Document nodes nest like a tree: html contains body, body contains headings, paragraphs, links, and form fields.",
+                "steps": ["html", "body", "section", "h1 / p / form"],
+            }
+        )
+    if "css" in source or "padding" in source or "layout" in source:
+        blocks.append(
+            {
+                "kind": "box-model",
+                "title": "CSS box model",
+                "body": "Every visual element can be inspected as content, padding, border, and margin. This keeps spacing decisions predictable.",
+                "steps": ["content", "padding", "border", "margin"],
+            }
+        )
+    if "request" in source or "server" in source or "api" in source or "json" in source:
+        blocks.append(
+            {
+                "kind": "client-server",
+                "title": "Client-server flow",
+                "body": "A screen requests data, the API validates the request, the database answers, and JSON returns to the frontend.",
+                "steps": ["client", "request", "backend", "database", "response"],
+            }
+        )
+    if "algorithm" in source or "step" in source:
+        blocks.append(
+            {
+                "kind": "algorithm-steps",
+                "title": "Algorithm checkpoints",
+                "body": "Reliable algorithms move through clear checkpoints, so missing or swapped steps are easier to spot.",
+                "steps": ["input", "ordered steps", "edge case", "output"],
+            }
+        )
+    if "traceback" in source or "error" in source or "debug" in source:
+        blocks.append(
+            {
+                "kind": "debug-trace",
+                "title": "Debug trace",
+                "body": "Read the symptom, locate the line, check one assumption, apply one fix, and retest.",
+                "steps": ["symptom", "message", "line", "fix", "retest"],
+            }
+        )
+    if "python" in source or "print(" in source or "def " in source or "score =" in source:
+        blocks.append(
+            {
+                "kind": "python-output",
+                "title": "Code and output",
+                "body": "Predict the value of each variable before running the next line. This habit makes quiz code-reading questions easier.",
+                "steps": ["read line", "update value", "predict output"],
+            }
+        )
+    if "form" in source or "validation" in source:
+        blocks.append(
+            {
+                "kind": "forms-validation",
+                "title": "Form validation path",
+                "body": "A good form checks required fields, validates format, explains errors, and only then submits data.",
+                "steps": ["input", "validate", "feedback", "submit"],
+            }
+        )
+    if not blocks:
+        blocks.append(
+            {
+                "kind": "concept-map",
+                "title": "Concept map",
+                "body": "Connect definition, example, mistake, practice, and quiz. The same concept appears in each step.",
+                "steps": ["concept", "example", "practice", "quiz"],
+            }
+        )
+
+    blocks.append(
+        {
+            "kind": "learning-loop",
+            "title": "Study loop",
+            "body": "Read the idea, test it locally, use feedback, then submit a saved quiz attempt for progress.",
+            "steps": ["learn", "practice", "feedback", "quiz"],
+        }
+    )
+    return blocks[:3]
+
+
+def _did_you_know_payload(intro: str, explanation: str, example: str) -> dict:
+    source = f"{intro} {explanation} {example}".lower()
+    if "debug" in source or "error" in source or "traceback" in source:
+        body = "Professional developers spend a large part of their time reading symptoms and testing small fixes, not writing perfect code first."
+    elif "html" in source or "css" in source or "form" in source:
+        body = "Clear structure and validation improve learning because students can scan, predict, and recover from mistakes faster."
+    elif "python" in source or "print(" in source or "def " in source:
+        body = "Code-reading practice is one of the fastest ways to build confidence before writing larger programs."
+    elif "algorithm" in source or "loop" in source or "step" in source:
+        body = "Algorithms are easier to debug when every step has a visible input and output."
+    else:
+        body = "Memory improves when a learner sees the same idea as a definition, example, practice task, and feedback."
+    return {
+        "title": "Did you know?",
+        "body": body,
+    }
+
+
+def _flashcards_payload(key_concepts: list[str]) -> list[dict]:
+    cards = []
+    for concept in key_concepts[:5]:
+        title, separator, body = concept.partition(" is ")
+        if not separator:
+            title, separator, body = concept.partition(" are ")
+            if separator:
+                body = f"are {body}"
+        else:
+            body = f"is {body}"
+        if not separator:
+            title = concept.split(".")[0]
+            body = concept
+        cards.append(
+            {
+                "term": title.strip(" ."),
+                "definition": body.strip(" ."),
+            }
+        )
+    return cards
+
+
+def _final_challenge_payload(practice: str, recap: str) -> dict:
+    return {
+        "title": "Final challenge",
+        "body": practice,
+        "successCriteria": [
+            "Use the lesson vocabulary correctly.",
+            "Explain one reason for your choice.",
+            "Connect your answer to the quiz review feedback.",
+        ],
+        "recapPrompt": recap,
+    }
+
+
+def _practice_payload(key_concepts: list[str], practice: str) -> dict:
+    correct = key_concepts[0] if key_concepts else "Use the lesson concept in a concrete situation."
+    distractor_one = key_concepts[1] if len(key_concepts) > 1 else "Ignore the lesson goal and guess quickly."
+    distractor_two = key_concepts[2] if len(key_concepts) > 2 else "Focus only on visual style without checking behavior."
+    return {
+        "type": "mcq",
+        "prompt": practice,
+        "options": [
+            correct,
+            distractor_one,
+            distractor_two,
+            "Skip the reasoning and choose a random answer.",
+        ],
+        "answer": 0,
+        "explanation": f"The strongest answer is: {correct} It connects the practice task to the main idea of the lesson.",
+    }
 
 
 def _question(
@@ -39,6 +284,7 @@ def _question(
     hint: str,
 ) -> dict:
     return {
+        "type": "mcq",
         "q": q,
         "question": q,
         "options": options,
@@ -600,8 +846,178 @@ QUIZ_BANKS = {
 }
 
 
+QUIZ_VARIETY_OVERRIDES = {
+    "Control Flow and Decisions": {
+        1: {
+            "type": "true_false",
+            "q": "True or false: an else block runs when the if condition is true.",
+            "options": ["True", "False"],
+            "answer": 1,
+            "explanation": "An else block runs when the if condition is false, so the statement is false.",
+            "hint": "Think about the path that runs when the condition does not pass.",
+        },
+        3: {
+            "type": "ordering",
+            "q": "Which order best describes a badge-award decision?",
+            "options": [
+                "Check completed lessons -> compare with badge rule -> award badge if the rule passes",
+                "Award badge -> check completed lessons -> compare with badge rule",
+                "Compare with badge rule -> award badge -> load completed lessons",
+                "Delete progress -> award badge -> ask for completed lessons",
+            ],
+            "answer": 0,
+            "explanation": "A decision should first inspect current progress, then compare it with the rule, then award the badge only if the condition is met.",
+            "hint": "The app needs the learner's progress before it can decide anything.",
+        },
+    },
+    "Algorithms and Step-by-Step Thinking": {
+        2: {
+            "type": "ordering",
+            "q": "Choose the correct high-level order for checking a quiz result.",
+            "options": [
+                "Load answers -> compare with correct indexes -> count correct answers -> calculate score",
+                "Calculate score -> load answers -> count correct answers -> compare indexes",
+                "Count correct answers -> calculate score -> load answers -> compare indexes",
+                "Compare indexes -> calculate score -> delete answers -> count correct answers",
+            ],
+            "answer": 0,
+            "explanation": "The algorithm needs the submitted answers first, then it compares, counts, and calculates the final score.",
+            "hint": "Start from the input before doing calculations.",
+        },
+    },
+    "Debugging and Error Handling": {
+        2: {
+            "type": "ordering",
+            "q": "Which debugging sequence is the safest?",
+            "options": [
+                "Reproduce the issue -> read the message -> inspect one assumption -> test the fix",
+                "Change many files -> guess the cause -> ignore the message -> test later",
+                "Delete the feature -> read the message -> change unrelated code -> publish",
+                "Test the fix -> reproduce the issue -> ignore the traceback -> guess",
+            ],
+            "answer": 0,
+            "explanation": "A reliable debugging loop narrows the problem before changing code.",
+            "hint": "Debugging works best when each step reduces uncertainty.",
+        },
+    },
+    "Python Syntax and Indentation": {
+        0: {
+            "type": "code_output",
+            "q": "If score is 80, what will this code print?",
+            "code": "score = 80\nif score >= 70:\n    print('Passed')\nprint('Done')",
+            "options": ["Passed then Done", "Only Done", "Only Passed", "Nothing"],
+            "answer": 0,
+            "explanation": "The indented print runs because the condition is true, and the final print runs after the if block.",
+            "hint": "Watch which line is indented and which line is outside the block.",
+        },
+        1: {
+            "type": "fill_gap",
+            "q": "Fill the missing Python keyword: ___ score >= 70:",
+            "options": ["if", "for", "def", "return"],
+            "answer": 0,
+            "explanation": "The if keyword starts a conditional decision.",
+            "hint": "The line checks whether a condition is true.",
+        },
+    },
+    "Lists and Loops": {
+        2: {
+            "type": "code_output",
+            "q": "What will this loop print?",
+            "code": "scores = [80, 95]\nfor score in scores:\n    print(score)",
+            "options": ["80 then 95", "95 then 80", "Only 80", "Nothing"],
+            "answer": 0,
+            "explanation": "The loop visits the list in order and prints each value.",
+            "hint": "Lists keep order, and the loop reads one item at a time.",
+        },
+    },
+    "Functions and Parameters": {
+        1: {
+            "type": "fill_gap",
+            "q": "Fill the missing keyword: ___ accuracy(correct, total):",
+            "options": ["def", "for", "if", "return"],
+            "answer": 0,
+            "explanation": "Python uses def to define a function.",
+            "hint": "The line is introducing a reusable named block.",
+        },
+    },
+    "Dictionaries and Data Structures": {
+        2: {
+            "type": "code_output",
+            "q": "What value does this code print?",
+            "code": "learner = {'name': 'Aida', 'xp': 120}\nprint(learner['xp'])",
+            "options": ["120", "Aida", "xp", "name"],
+            "answer": 0,
+            "explanation": "The key 'xp' retrieves the value 120 from the dictionary.",
+            "hint": "Look at the value stored under the selected key.",
+        },
+    },
+    "HTML Structure": {
+        0: {
+            "type": "fill_gap",
+            "q": "Fill the missing tag name: <___>Main title</___>",
+            "options": ["h1", "p", "a", "img"],
+            "answer": 0,
+            "explanation": "h1 is the main heading tag.",
+            "hint": "The tag name starts with h for heading.",
+        },
+    },
+    "CSS Styling and Layout": {
+        1: {
+            "type": "true_false",
+            "q": "True or false: padding is the space inside the border around content.",
+            "options": ["True", "False"],
+            "answer": 0,
+            "explanation": "Padding sits between the content and border.",
+            "hint": "Margin is outside the border; padding is inside it.",
+        },
+    },
+    "JavaScript Basics": {
+        2: {
+            "type": "code_output",
+            "q": "What value is stored after this JavaScript code runs?",
+            "code": "let currentQuestionIndex = 0;\ncurrentQuestionIndex = currentQuestionIndex + 1;",
+            "options": ["1", "0", "currentQuestionIndex", "undefined"],
+            "answer": 0,
+            "explanation": "The variable starts at 0 and then increases by 1.",
+            "hint": "Track the variable value after the assignment.",
+        },
+    },
+    "Client-Server Communication": {
+        3: {
+            "type": "ordering",
+            "q": "Which request-response order is correct?",
+            "options": [
+                "Client sends request -> server handles it -> server returns response -> UI updates",
+                "UI updates -> server returns response -> client sends request -> server handles it",
+                "Server handles it -> UI updates -> client sends request -> response returns",
+                "Client sends request -> UI deletes data -> server guesses -> response disappears",
+            ],
+            "answer": 0,
+            "explanation": "The client starts the exchange, the server processes it, and the response lets the UI update.",
+            "hint": "Start from the app asking the backend for something.",
+        },
+    },
+    "Forms and Validation": {
+        1: {
+            "type": "true_false",
+            "q": "True or false: server-side validation is still needed even when the client validates input.",
+            "options": ["True", "False"],
+            "answer": 0,
+            "explanation": "Client checks improve UX, but the server must enforce the real rules.",
+            "hint": "A client can be bypassed; the server protects shared data.",
+        },
+    },
+}
+
+
 def _quiz_payload(lesson_title: str, title: str) -> list[dict]:
-    return QUIZ_BANKS[lesson_title]
+    questions = [dict(question) for question in QUIZ_BANKS[lesson_title]]
+    for index, override in QUIZ_VARIETY_OVERRIDES.get(lesson_title, {}).items():
+        if 0 <= index < len(questions):
+            questions[index].update(override)
+            questions[index]["question"] = questions[index]["q"]
+            questions[index]["correctIndex"] = questions[index]["answer"]
+    return questions
 
 
 def seed_db():
@@ -685,6 +1101,7 @@ def seed_db():
             quiz = models.Quiz(
                 lesson_id=lesson.id,
                 title=f"{lesson_title} Quiz",
+                xp_reward=100 + min(50, (lesson_index - 1) * 10),
                 questions=json.dumps(_quiz_payload(lesson_title, course.title)),
             )
             db.add(quiz)

@@ -9,6 +9,7 @@ router = APIRouter()
 class QuizSchema(BaseModel):
     id: int
     title: str
+    xp_reward: int
     questions: str
 
     class Config:
@@ -83,7 +84,7 @@ def submit_quiz(quiz_id: int, submission: QuizSubmit, db: Session = Depends(data
                 detail="Quiz retries are disabled for this lesson",
             )
 
-    base_xp = config.xp_per_quiz if config else 100
+    base_xp = quiz.xp_reward or (config.xp_per_quiz if config else 100)
 
     xp_earned = int(score * base_xp)
     attempt = models.Attempt(

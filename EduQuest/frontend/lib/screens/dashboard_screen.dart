@@ -36,6 +36,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int get _completedLessonsCount =>
       (profile?['completed_lessons'] as List<dynamic>? ?? []).length;
 
+  List<int> get _completedLessonIds =>
+      (profile?['completed_lessons'] as List<dynamic>? ?? [])
+          .map((item) => (item as num).toInt())
+          .toList();
+
+  int get _totalLessonCount {
+    return courses.fold<int>(
+      0,
+      (sum, course) => sum + ((course['lesson_count'] ?? 0) as num).toInt(),
+    );
+  }
+
+  double get _overallCompletionRate {
+    if (_totalLessonCount == 0) return 0;
+    return (_completedLessonsCount / _totalLessonCount)
+        .clamp(0.0, 1.0)
+        .toDouble();
+  }
+
   double get _averageScore {
     if (attempts.isEmpty) return 0;
     final total = attempts.fold<double>(
@@ -54,6 +73,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int get _level => ((profile?['level'] ?? 1) as num).toInt();
   int get _xp => ((profile?['xp'] ?? 0) as num).toInt();
   int get _streak => ((profile?['streak'] ?? 0) as num).toInt();
+
+  List<Map<String, dynamic>> get _earnedBadges {
+    final badges = <Map<String, dynamic>>[];
+    if (_completedLessonsCount >= 1) {
+      badges.add({
+        'title': 'First lesson',
+        'subtitle': 'Completed a real lesson step',
+        'icon': Icons.flag_outlined,
+        'color': EduQuestColors.primary,
+      });
+    }
+    if (attempts.isNotEmpty) {
+      badges.add({
+        'title': 'Quiz starter',
+        'subtitle': 'Submitted a saved quiz attempt',
+        'icon': Icons.quiz_outlined,
+        'color': EduQuestColors.info,
+      });
+    }
+    if (_passedAttempts >= 3) {
+      badges.add({
+        'title': 'Mastery builder',
+        'subtitle': 'Passed 3 quizzes at 70% or higher',
+        'icon': Icons.emoji_events_outlined,
+        'color': EduQuestColors.secondary,
+      });
+    }
+    if (_streak >= 3) {
+      badges.add({
+        'title': 'Streak builder',
+        'subtitle': 'Kept learning momentum for 3+ days',
+        'icon': Icons.local_fire_department_outlined,
+        'color': EduQuestColors.accent,
+      });
+    }
+    if (_level >= 2) {
+      badges.add({
+        'title': 'Level up',
+        'subtitle': 'Reached level 2 from real XP',
+        'icon': Icons.stars_outlined,
+        'color': EduQuestColors.success,
+      });
+    }
+    return badges;
+  }
 
   @override
   void initState() {
@@ -271,6 +335,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             (_) => LessonScreen(
               courseId: course['id'],
               courseTitle: course['title']?.toString() ?? 'Course',
+              courseDescription: course['description']?.toString(),
               userId: widget.userId,
             ),
       ),
@@ -350,12 +415,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHomeTab() {
     final firstCourse = courses.isNotEmpty ? courses.first : null;
     final name = currentUser?['full_name']?.toString() ?? 'Learner';
-    final completionRate =
-        courses.isEmpty
-            ? 0.0
-            : (_completedLessonsCount / (courses.length * 3))
-                .clamp(0.0, 1.0)
-                .toDouble();
+    final completionRate = _overallCompletionRate;
 
     return ListView(
       children: [
@@ -459,6 +519,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        _buildBadgesSection(),
         const SizedBox(height: 16),
         const AppSectionHeader(
           title: 'Quick actions',
@@ -633,12 +695,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildProgressTab() {
-    final completionRatio =
-        courses.isEmpty
-            ? 0.0
-            : (_completedLessonsCount / (courses.length * 3))
-                .clamp(0.0, 1.0)
-                .toDouble();
+    final completionRatio = _overallCompletionRate;
 
     return ListView(
       children: [
@@ -726,6 +783,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        _buildBadgesSection(),
         const SizedBox(height: 16),
         const AppSectionHeader(
           title: 'Recent activity',
@@ -872,8 +931,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildCourseCard(dynamic course) {
-    final int id = (course['id'] as num?)?.toInt() ?? 0;
-    final progressSeed = (id % 4 + 1) / 5;
+    final lessonCount = ((course['lesson_count'] ?? 0) as num).toInt();
+    final completedForCourse = _completedCountForCourse(course);
+    final courseProgress =
+        lessonCount == 0
+            ? 0.0
+            : (completedForCourse / lessonCount).clamp(0.0, 1.0).toDouble();
     final title = course['title']?.toString() ?? 'Course';
     final description =
         course['description']?.toString() ??
@@ -900,7 +963,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     AppInfoChip(
                       label:
-                          '${course['lesson_count'] ?? 0} lessons • ${course['quiz_count'] ?? 0} quizzes',
+                          '${course['lesson_count'] ?? 0} lessons | ${course['quiz_count'] ?? 0} quizzes',
                       color: EduQuestColors.primary,
                       icon: Icons.auto_stories_outlined,
                     ),
@@ -910,7 +973,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(description, style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 14),
                 LinearProgressIndicator(
-                  value: progressSeed,
+                  value: courseProgress,
                   minHeight: 8,
                   borderRadius: BorderRadius.circular(999),
                   backgroundColor: EduQuestColors.primarySoft,
@@ -921,7 +984,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   runSpacing: 10,
                   children: [
                     Text(
-                      '${(progressSeed * 100).round()}% path visibility',
+                      '$completedForCourse/$lessonCount lessons completed',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     if (course['difficulty'] != null)
@@ -942,6 +1005,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildBadgesSection() {
+    final badges = _earnedBadges;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const AppSectionHeader(
+          title: 'Earned badges',
+          subtitle: 'Achievement cards derived from real progress and attempts.',
+        ),
+        const SizedBox(height: 12),
+        if (badges.isEmpty)
+          const AppEmptyState(
+            icon: Icons.workspace_premium_outlined,
+            title: 'No badges yet',
+            description:
+                'Complete a lesson quiz or pass a few attempts to unlock progress badges.',
+          )
+        else
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children:
+                badges.map((badge) {
+                  final color = badge['color'] as Color;
+                  return SizedBox(
+                    width: 170,
+                    child: AppSurface(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundColor: color.withValues(alpha: 0.14),
+                            child: Icon(badge['icon'] as IconData, color: color),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            badge['title'].toString(),
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            badge['subtitle'].toString(),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+          ),
+      ],
+    );
+  }
+
+  int _completedCountForCourse(dynamic course) {
+    final lessonIds =
+        (course['lesson_ids'] as List<dynamic>? ?? const <dynamic>[])
+            .map((item) => (item as num).toInt())
+            .toSet();
+    if (lessonIds.isEmpty) return 0;
+    return _completedLessonIds.where(lessonIds.contains).length;
   }
 
   Widget _buildAttemptCard(dynamic attempt) {

@@ -43,7 +43,11 @@ class _AITutorScreenState extends State<AITutorScreen> {
       _ctl.clear();
     });
 
-    final aiResponse = await ApiService.getAiHint(widget.userId, prompt);
+    final aiResponse = await ApiService.getAiHint(
+      widget.userId,
+      prompt,
+      context: widget.contextStr,
+    );
     if (!mounted) return;
 
     setState(() {

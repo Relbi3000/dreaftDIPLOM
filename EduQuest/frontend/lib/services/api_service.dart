@@ -10,9 +10,11 @@ class ApiService {
   static Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('user_id');
+    final token = prefs.getString('auth_token');
     return {
       'Content-Type': 'application/json',
       if (userId != null) 'X-User-Id': userId.toString(),
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
 
@@ -31,6 +33,9 @@ class ApiService {
         final data = jsonDecode(response.body);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('user_id', data['user_id']);
+        if (data['token'] != null) {
+          await prefs.setString('auth_token', data['token']);
+        }
         await prefs.setString('user_email', data['email'] ?? email);
         await prefs.setString('user_name', data['full_name'] ?? '');
         await prefs.setString('user_role', data['role'] ?? 'student');
@@ -124,6 +129,7 @@ class ApiService {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_id');
+    await prefs.remove('auth_token');
     await prefs.remove('user_email');
     await prefs.remove('user_name');
     await prefs.remove('user_role');
@@ -210,28 +216,31 @@ class ApiService {
 
   static Future<Map<String, dynamic>?> submitQuiz(
     int quizId,
-    int userId,
-    double score,
+    List<int> answers,
   ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/quizzes/$quizId/submit'),
         headers: await _getHeaders(),
-        body: jsonEncode({'user_id': userId, 'score': score}),
+        body: jsonEncode({'answers': answers}),
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (_) {}
     return null;
   }
 
-  static Future<String> getAiHint(int userId, String question) async {
+  static Future<String> getAiHint(
+    int userId,
+    String question, {
+    String context = 'General',
+  }) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/ai-tutor/hint'),
         headers: await _getHeaders(),
         body: jsonEncode({
           'user_id': userId,
-          'context': 'General',
+          'context': context,
           'user_question': question,
         }),
       );
@@ -450,6 +459,7 @@ class ApiService {
     int lessonId,
     String title,
     List<dynamic> questions,
+    int xpReward,
   ) async {
     try {
       final response = await http.post(
@@ -459,6 +469,7 @@ class ApiService {
           'lesson_id': lessonId,
           'title': title,
           'questions': questions,
+          'xp_reward': xpReward,
         }),
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
