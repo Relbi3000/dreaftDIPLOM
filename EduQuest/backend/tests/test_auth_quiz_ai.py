@@ -1,3 +1,4 @@
+import pytest
 import routers.ai_tutor as ai_tutor_router
 
 
@@ -77,15 +78,15 @@ def test_quiz_submission_and_attempt_access_rules(client, auth_headers, seeded_i
     submit = client.post(
         "/api/quizzes/2/submit",
         headers=auth_headers("student@eduquest.com"),
-        json={"answers": [0, 0]},
+        json={"answers": [0, 0, 0, 0, 0, 0, 0]},
     )
     assert submit.status_code == 200
     body = submit.json()
-    assert body["score"] == 0.5
+    assert body["score"] == pytest.approx(6 / 7)
     assert "attempt_id" in body
     assert "new_streak" in body
-    assert body["correct_answers"] == 1
-    assert body["total_questions"] == 2
+    assert body["correct_answers"] == 6
+    assert body["total_questions"] == 7
     assert len(body["wrong_answers"]) == 1
     assert body["wrong_answers"][0]["correct_answer_index"] == 1
 
@@ -143,7 +144,7 @@ def test_student_safe_config_and_retry_policy_enforcement(client, auth_headers):
     first_submit = client.post(
         "/api/quizzes/4/submit",
         headers=auth_headers("student@eduquest.com"),
-        json={"answers": [0]},
+        json={"answers": [0, 0, 0, 0, 0, 0, 0]},
     )
     assert first_submit.status_code == 200
 
@@ -161,7 +162,7 @@ def test_student_safe_config_and_retry_policy_enforcement(client, auth_headers):
     second_submit = client.post(
         "/api/quizzes/4/submit",
         headers=auth_headers("student@eduquest.com"),
-        json={"answers": [0]},
+        json={"answers": [0, 0, 0, 0, 0, 0, 0]},
     )
     assert second_submit.status_code == 409
     assert second_submit.json()["detail"] == "Quiz retries are disabled for this lesson"

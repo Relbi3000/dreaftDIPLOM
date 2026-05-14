@@ -192,6 +192,8 @@ class _QuizScreenState extends State<QuizScreen> {
   Widget _buildQuizView() {
     final q = questions[currentQuestionIdx];
     final progress = (currentQuestionIdx + 1) / questions.length;
+    final difficulty = q['difficulty']?.toString();
+    final topicTag = q['topicTag']?.toString();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -233,6 +235,27 @@ class _QuizScreenState extends State<QuizScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(q['q'], style: Theme.of(context).textTheme.titleLarge),
+              if (difficulty != null || topicTag != null) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    if (difficulty != null)
+                      AppInfoChip(
+                        label: difficulty,
+                        color: EduQuestColors.secondary,
+                        icon: Icons.speed_outlined,
+                      ),
+                    if (topicTag != null)
+                      AppInfoChip(
+                        label: topicTag,
+                        color: EduQuestColors.info,
+                        icon: Icons.sell_outlined,
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 18),
               ...List.generate(q['options'].length, (index) {
                 return Padding(
@@ -394,6 +417,9 @@ class _QuizScreenState extends State<QuizScreen> {
           final userAnswerIdx = userAnswers[index];
           final correctIdx = q['answer'];
           final isCorrect = userAnswerIdx == correctIdx;
+          final explanation = q['explanation']?.toString() ?? '';
+          final difficulty = q['difficulty']?.toString();
+          final topicTag = q['topicTag']?.toString();
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -445,6 +471,53 @@ class _QuizScreenState extends State<QuizScreen> {
                         style: const TextStyle(
                           color: EduQuestColors.success,
                           fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    if (difficulty != null || topicTag != null) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          if (difficulty != null)
+                            AppInfoChip(
+                              label: difficulty,
+                              color: EduQuestColors.secondary,
+                              icon: Icons.speed_outlined,
+                            ),
+                          if (topicTag != null)
+                            AppInfoChip(
+                              label: topicTag,
+                              color: EduQuestColors.info,
+                              icon: Icons.sell_outlined,
+                            ),
+                        ],
+                      ),
+                    ],
+                    if (explanation.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: EduQuestColors.bg,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: EduQuestColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Explanation',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              explanation,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
                         ),
                       ),
                     ],
