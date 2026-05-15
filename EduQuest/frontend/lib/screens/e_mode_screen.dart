@@ -312,7 +312,7 @@ class _EModeScreenState extends State<EModeScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<int>(
-            initialValue: _selectedCourseId,
+            value: _selectedCourseId,
             items: _courses
                 .map(
                   (course) => DropdownMenuItem<int>(
@@ -337,7 +337,7 @@ class _EModeScreenState extends State<EModeScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(
-            initialValue: _selectedLessonId,
+            value: _selectedLessonId,
             items: lessons
                 .map(
                   (lesson) => DropdownMenuItem<int>(
@@ -373,7 +373,7 @@ class _EModeScreenState extends State<EModeScreen> {
           const SizedBox(height: 12),
           AdaptiveTwoPane(
             first: DropdownButtonFormField<String>(
-              initialValue: _studentLevel,
+              value: _studentLevel,
               items: const [
                 DropdownMenuItem(value: 'beginner', child: Text('Beginner')),
                 DropdownMenuItem(value: 'intermediate', child: Text('Intermediate')),
@@ -385,7 +385,7 @@ class _EModeScreenState extends State<EModeScreen> {
               decoration: const InputDecoration(labelText: 'Student level'),
             ),
             second: DropdownButtonFormField<String>(
-              initialValue: _difficulty,
+              value: _difficulty,
               items: const [
                 DropdownMenuItem(value: 'easy', child: Text('Easy')),
                 DropdownMenuItem(value: 'medium', child: Text('Medium')),
@@ -405,7 +405,7 @@ class _EModeScreenState extends State<EModeScreen> {
               decoration: const InputDecoration(labelText: 'Question count'),
             ),
             second: DropdownButtonFormField<String>(
-              initialValue: _language,
+              value: _language,
               items: const [
                 DropdownMenuItem(value: 'English', child: Text('English')),
                 DropdownMenuItem(value: 'Russian', child: Text('Russian')),

@@ -228,7 +228,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  initialValue: selectedCourseId,
+                  value: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -393,16 +393,19 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 'options': options,
                 'answer': safeCorrectIndex,
                 'correctIndex': safeCorrectIndex,
-                'explanation': explanationController.text.trim().isEmpty
-                    ? 'Review the lesson concept and compare it with the selected answer.'
-                    : explanationController.text.trim(),
+                'explanation':
+                    explanationController.text.trim().isEmpty
+                        ? 'Review the lesson concept and compare it with the selected answer.'
+                        : explanationController.text.trim(),
                 'difficulty': difficulty,
-                'topicTag': topicController.text.trim().isEmpty
-                    ? 'teacher-created'
-                    : topicController.text.trim(),
-                'hint': hintController.text.trim().isEmpty
-                    ? 'Look for the option that best matches the lesson objective.'
-                    : hintController.text.trim(),
+                'topicTag':
+                    topicController.text.trim().isEmpty
+                        ? 'teacher-created'
+                        : topicController.text.trim(),
+                'hint':
+                    hintController.text.trim().isEmpty
+                        ? 'Look for the option that best matches the lesson objective.'
+                        : hintController.text.trim(),
               };
               if (questionType == 'code_output' &&
                   codeController.text.trim().isNotEmpty) {
@@ -440,7 +443,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  initialValue: selectedCourseId,
+                  value: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -468,7 +471,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  initialValue: selectedLessonId,
+                  value: selectedLessonId,
                   items:
                       lessons
                           .map(
@@ -515,13 +518,28 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  initialValue: questionType,
+                  value: questionType,
                   items: const [
-                    DropdownMenuItem(value: 'mcq', child: Text('Multiple choice')),
-                    DropdownMenuItem(value: 'true_false', child: Text('True / false')),
-                    DropdownMenuItem(value: 'code_output', child: Text('Code output')),
-                    DropdownMenuItem(value: 'fill_gap', child: Text('Fill gap')),
-                    DropdownMenuItem(value: 'ordering', child: Text('Ordering')),
+                    DropdownMenuItem(
+                      value: 'mcq',
+                      child: Text('Multiple choice'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'true_false',
+                      child: Text('True / false'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'code_output',
+                      child: Text('Code output'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'fill_gap',
+                      child: Text('Fill gap'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'ordering',
+                      child: Text('Ordering'),
+                    ),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
@@ -568,10 +586,8 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ],
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  initialValue:
-                      correctIndex < currentOptions.length
-                          ? correctIndex
-                          : 0,
+                  value:
+                      correctIndex < currentOptions.length ? correctIndex : 0,
                   items:
                       List.generate(
                         currentOptions.isEmpty ? 2 : currentOptions.length,
@@ -587,11 +603,13 @@ class _TeacherScreenState extends State<TeacherScreen> {
                   onChanged: (value) {
                     setSheetState(() => correctIndex = value ?? 0);
                   },
-                  decoration: const InputDecoration(labelText: 'Correct answer'),
+                  decoration: const InputDecoration(
+                    labelText: 'Correct answer',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: difficulty,
+                  value: difficulty,
                   items: const [
                     DropdownMenuItem(value: 'easy', child: Text('Easy')),
                     DropdownMenuItem(value: 'medium', child: Text('Medium')),
@@ -710,8 +728,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                               }
                               final title = titleController.text.trim();
                               final xpReward =
-                                  int.tryParse(xpController.text.trim()) ??
-                                      -1;
+                                  int.tryParse(xpController.text.trim()) ?? -1;
                               if (title.isEmpty) {
                                 messenger.showSnackBar(
                                   const SnackBar(
@@ -830,7 +847,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  initialValue: selectedCourseId,
+                  value: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -858,7 +875,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  initialValue: selectedQuizId,
+                  value: selectedQuizId,
                   items:
                       quizOptions
                           .map(
@@ -918,48 +935,49 @@ class _TeacherScreenState extends State<TeacherScreen> {
                                 titleController.text.trim().isEmpty
                             ? null
                             : () async {
-                      final dueAt =
-                          dueController.text.trim().isEmpty
-                              ? null
-                              : '${dueController.text.trim()}T18:00:00';
+                              final dueAt =
+                                  dueController.text.trim().isEmpty
+                                      ? null
+                                      : '${dueController.text.trim()}T18:00:00';
 
-                      final response =
-                          existing == null
-                              ? await ApiService.createTeacherAssignment(
-                                quizId: selectedQuizId!,
-                                courseId: selectedCourseId,
-                                title: titleController.text.trim(),
-                                instructions:
-                                    instructionsController.text.trim(),
-                                dueAt: dueAt,
-                              )
-                              : await ApiService.updateTeacherAssignment(
-                                assignmentId: (existing['id'] as num).toInt(),
-                                quizId: selectedQuizId!,
-                                courseId: selectedCourseId,
-                                title: titleController.text.trim(),
-                                instructions:
-                                    instructionsController.text.trim(),
-                                dueAt: dueAt,
+                              final response =
+                                  existing == null
+                                      ? await ApiService.createTeacherAssignment(
+                                        quizId: selectedQuizId!,
+                                        courseId: selectedCourseId,
+                                        title: titleController.text.trim(),
+                                        instructions:
+                                            instructionsController.text.trim(),
+                                        dueAt: dueAt,
+                                      )
+                                      : await ApiService.updateTeacherAssignment(
+                                        assignmentId:
+                                            (existing['id'] as num).toInt(),
+                                        quizId: selectedQuizId!,
+                                        courseId: selectedCourseId,
+                                        title: titleController.text.trim(),
+                                        instructions:
+                                            instructionsController.text.trim(),
+                                        dueAt: dueAt,
+                                      );
+
+                              if (!mounted) return;
+                              navigator.pop();
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    response != null
+                                        ? existing == null
+                                            ? 'Assignment created'
+                                            : 'Assignment updated'
+                                        : 'Assignment request failed',
+                                  ),
+                                ),
                               );
-
-                      if (!mounted) return;
-                      navigator.pop();
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            response != null
-                                ? existing == null
-                                    ? 'Assignment created'
-                                    : 'Assignment updated'
-                                : 'Assignment request failed',
-                          ),
-                        ),
-                      );
-                      if (response != null) {
-                        await _loadData();
-                      }
-                    },
+                              if (response != null) {
+                                await _loadData();
+                              }
+                            },
                     child: Text(existing == null ? 'Create' : 'Update'),
                   ),
                 ),
