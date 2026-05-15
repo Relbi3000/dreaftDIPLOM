@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../ui/app_components.dart';
 import '../ui/eduquest_theme.dart';
+import 'e_mode_screen.dart';
 import 'login_screen.dart';
 
 class TeacherScreen extends StatefulWidget {
@@ -83,6 +84,14 @@ class _TeacherScreenState extends State<TeacherScreen> {
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
     );
+  }
+
+  Future<void> _openEMode() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const EModeScreen()));
+    if (!mounted) return;
+    await _loadData();
   }
 
   Future<Map<String, dynamic>?> _getCourseContentMap(int courseId) async {
@@ -219,7 +228,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: selectedCourseId,
+                  initialValue: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -431,7 +440,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: selectedCourseId,
+                  initialValue: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -459,7 +468,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: selectedLessonId,
+                  initialValue: selectedLessonId,
                   items:
                       lessons
                           .map(
@@ -506,7 +515,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: questionType,
+                  initialValue: questionType,
                   items: const [
                     DropdownMenuItem(value: 'mcq', child: Text('Multiple choice')),
                     DropdownMenuItem(value: 'true_false', child: Text('True / false')),
@@ -559,7 +568,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ],
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value:
+                  initialValue:
                       correctIndex < currentOptions.length
                           ? correctIndex
                           : 0,
@@ -582,7 +591,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: difficulty,
+                  initialValue: difficulty,
                   items: const [
                     DropdownMenuItem(value: 'easy', child: Text('Easy')),
                     DropdownMenuItem(value: 'medium', child: Text('Medium')),
@@ -821,7 +830,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: selectedCourseId,
+                  initialValue: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -849,7 +858,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: selectedQuizId,
+                  initialValue: selectedQuizId,
                   items:
                       quizOptions
                           .map(
@@ -1205,6 +1214,15 @@ class _TeacherScreenState extends State<TeacherScreen> {
           icon: Icons.quiz_outlined,
           color: EduQuestColors.info,
           onTap: _showCreateQuizSheet,
+        ),
+        const SizedBox(height: 12),
+        AppActionCard(
+          title: 'E-Mode draft studio',
+          subtitle:
+              'Upload source material, generate an AI draft, refine it in chat, and save it as a standard quiz.',
+          icon: Icons.auto_awesome_outlined,
+          color: EduQuestColors.accent,
+          onTap: _openEMode,
         ),
         const SizedBox(height: 16),
         const AppSectionHeader(

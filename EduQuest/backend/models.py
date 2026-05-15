@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Float, DateTime
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Float, DateTime, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -33,6 +33,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
 
     profile = relationship("GamificationProfile", back_populates="user", uselist=False)
+    e_mode_sessions = relationship("EModeSession", back_populates="teacher")
 
 class GamificationProfile(Base):
     __tablename__ = "gamification_profiles"
@@ -109,4 +110,47 @@ class Assignment(Base):
 
     quiz = relationship("Quiz", back_populates="assignments")
     course = relationship("Course", back_populates="assignments")
+
+
+class EModeSession(Base):
+    __tablename__ = "e_mode_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False, index=True)
+    lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False, index=True)
+    topic = Column(String, nullable=False)
+    instructions = Column(Text, default="")
+    student_level = Column(String, nullable=True)
+    difficulty = Column(String, nullable=True)
+    language = Column(String, nullable=True)
+    task_count = Column(Integer, nullable=True)
+    preferred_types = Column(Text, default="[]")
+    quiz_title = Column(String, nullable=True)
+    uploaded_file_name = Column(String, nullable=True)
+    uploaded_file_type = Column(String, nullable=True)
+    extracted_material_text = Column(Text, nullable=True)
+    current_draft = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    teacher = relationship("User", back_populates="e_mode_sessions")
+    messages = relationship(
+        "EModeMessage",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="EModeMessage.created_at",
+    )
+
+
+class EModeMessage(Base):
+    __tablename__ = "e_mode_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("e_mode_sessions.id"), nullable=False, index=True)
+    role = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    session = relationship("EModeSession", back_populates="messages")
 

@@ -562,4 +562,148 @@ class ApiService {
     } catch (_) {}
     return null;
   }
+
+  static Future<Map<String, dynamic>> createEModeSession({
+    required int courseId,
+    required int lessonId,
+    required String topic,
+    required String instructions,
+    String? studentLevel,
+    String? difficulty,
+    String? language,
+    int? taskCount,
+    List<String> preferredTypes = const [],
+    String? quizTitle,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/teacher/e-mode/sessions'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'course_id': courseId,
+          'lesson_id': lessonId,
+          'topic': topic,
+          'instructions': instructions,
+          'student_level': studentLevel,
+          'difficulty': difficulty,
+          'language': language,
+          'task_count': taskCount,
+          'preferred_types': preferredTypes,
+          'quiz_title': quizTitle,
+        }),
+      );
+      return _decodeJsonOrError(response);
+    } catch (e) {
+      return {'error': 'Unable to create E-Mode session: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getEModeSession(int sessionId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/teacher/e-mode/sessions/$sessionId'),
+        headers: await _getHeaders(),
+      );
+      return _decodeJsonOrError(response);
+    } catch (e) {
+      return {'error': 'Unable to load E-Mode session: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> uploadEModeMaterial({
+    required int sessionId,
+    required String fileName,
+    required List<int> bytes,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/teacher/e-mode/sessions/$sessionId/upload'),
+      );
+      final headers = await _getHeaders();
+      headers.remove('Content-Type');
+      request.headers.addAll(headers);
+      request.files.add(
+        http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+      );
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return _decodeJsonOrError(response);
+    } catch (e) {
+      return {'error': 'Unable to upload learning material: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> generateEModeDraft(int sessionId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/teacher/e-mode/sessions/$sessionId/generate'),
+        headers: await _getHeaders(),
+      );
+      return _decodeJsonOrError(response);
+    } catch (e) {
+      return {'error': 'Unable to generate E-Mode draft: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> chatEModeSession({
+    required int sessionId,
+    required String message,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/teacher/e-mode/sessions/$sessionId/chat'),
+        headers: await _getHeaders(),
+        body: jsonEncode({'message': message}),
+      );
+      return _decodeJsonOrError(response);
+    } catch (e) {
+      return {'error': 'Unable to update E-Mode draft: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> saveEModeDraft({
+    required int sessionId,
+    String? title,
+    int? xpReward,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/teacher/e-mode/sessions/$sessionId/save'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'title': title,
+          'xp_reward': xpReward,
+        }),
+      );
+      return _decodeJsonOrError(response);
+    } catch (e) {
+      return {'error': 'Unable to save E-Mode draft: $e'};
+    }
+  }
+
+  static Map<String, dynamic> _decodeJsonOrError(http.Response response) {
+    if (response.body.isEmpty) {
+      return response.statusCode >= 200 && response.statusCode < 300
+          ? {}
+          : {'error': 'Unexpected empty response (${response.statusCode})'};
+    }
+
+    try {
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return decoded is Map<String, dynamic>
+            ? decoded
+            : {'data': decoded};
+      }
+      if (decoded is Map<String, dynamic>) {
+        return {'error': decoded['detail']?.toString() ?? 'Request failed'};
+      }
+      return {'error': 'Request failed with status ${response.statusCode}'};
+    } catch (_) {
+      return {
+        'error': 'Request failed with status ${response.statusCode}',
+      };
+    }
+  }
 }
