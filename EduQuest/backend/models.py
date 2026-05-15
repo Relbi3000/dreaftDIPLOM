@@ -93,6 +93,9 @@ class Attempt(Base):
     quiz_id = Column(Integer, ForeignKey("quizzes.id"))
     score = Column(Float)
     earned_xp = Column(Integer)
+    student_answers_json = Column(Text, default="[]")
+    quiz_questions_snapshot_json = Column(Text, default="[]")
+    wrong_answer_indexes_json = Column(Text, default="[]")
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -153,4 +156,35 @@ class EModeMessage(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     session = relationship("EModeSession", back_populates="messages")
+
+
+class StudentAISession(Base):
+    __tablename__ = "student_ai_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    mode = Column(String, index=True)
+    course_id = Column(Integer, ForeignKey("courses.id"), nullable=True)
+    lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=True)
+    attempt_id = Column(Integer, ForeignKey("attempts.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+    messages = relationship(
+        "StudentAIMessage",
+        back_populates="session",
+        cascade="all, delete-orphan",
+    )
+
+
+class StudentAIMessage(Base):
+    __tablename__ = "student_ai_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("student_ai_sessions.id"))
+    role = Column(String)
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    session = relationship("StudentAISession", back_populates="messages")
 

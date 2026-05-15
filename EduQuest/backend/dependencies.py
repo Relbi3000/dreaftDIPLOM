@@ -46,4 +46,7 @@ def require_admin(user_id: int = Depends(get_current_user_id), db: Session = Dep
     return user
 
 def get_active_student(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
-    return get_active_user(user_id=user_id, db=db)
+    user = get_active_user(user_id=user_id, db=db)
+    if user.role != "student":
+        raise HTTPException(status_code=403, detail="Student access required")
+    return user

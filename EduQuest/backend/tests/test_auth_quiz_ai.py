@@ -87,6 +87,7 @@ def test_quiz_submission_and_attempt_access_rules(client, auth_headers, seeded_i
     assert "new_streak" in body
     assert body["correct_answers"] == 6
     assert body["total_questions"] == 7
+    assert body["wrong_answer_indexes"] == [1]
     assert len(body["wrong_answers"]) == 1
     assert body["wrong_answers"][0]["correct_answer_index"] == 1
 

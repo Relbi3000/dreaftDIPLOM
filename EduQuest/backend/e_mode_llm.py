@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 BACKEND_DIR = Path(__file__).resolve().parent
-ENV_PATHS = (BACKEND_DIR / ".env", BACKEND_DIR.parent / ".env")
+ENV_PATH = BACKEND_DIR / ".env"
 
 SUPPORTED_DIFFICULTIES = ("easy", "medium", "hard")
 SUPPORTED_TYPES = ("mcq", "true_false", "code_output", "fill_gap", "ordering")
@@ -55,18 +55,25 @@ class EModeDraftSchema(BaseModel):
 
 
 def _load_env_files() -> None:
-    for env_path in ENV_PATHS:
-        if not env_path.exists():
+    if not ENV_PATH.exists():
+        return
+    for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
             continue
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#") or "=" not in stripped:
-                continue
-            key, value = stripped.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key and key not in os.environ:
-                os.environ[key] = value
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            os.environ[key] = value
+
+
+def _first_env(*keys: str, default: str = "") -> str:
+    for key in keys:
+        value = os.getenv(key, "").strip()
+        if value:
+            return value
+    return default
 
 
 def build_e_mode_prompt(
@@ -127,30 +134,29 @@ Hard rules:
 def generate_draft_from_llm(messages: list[dict[str, str]]) -> dict[str, Any]:
     _load_env_files()
 
-    model = (
-        os.getenv("E_MODE_MODEL", "").strip()
-        or os.getenv("E_MODE_LLM_MODEL", "").strip()
-    )
-    api_key = (
-        os.getenv("OPENAI_API_KEY", "").strip()
-        or os.getenv("E_MODE_LLM_API_KEY", "").strip()
-    )
-    base_url = (
-        os.getenv("OPENAI_BASE_URL", "").strip()
-        or os.getenv("E_MODE_LLM_API_URL", "").strip()
-        or None
-    )
-    timeout_seconds = int(
-        os.getenv("E_MODE_TIMEOUT_SECONDS", "").strip()
-        or os.getenv("E_MODE_LLM_TIMEOUT", "45").strip()
+    model = _first_env("AI_MODEL", "E_MODE_MODEL", "STUDENT_AI_MODEL", "E_MODE_LLM_MODEL")
+    api_key = _first_env("OPENAI_API_KEY", "E_MODE_LLM_API_KEY")
+    base_url = _first_env("OPENAI_BASE_URL", "E_MODE_LLM_API_URL") or None
+    timeout_raw = _first_env(
+        "AI_TIMEOUT_SECONDS",
+        "E_MODE_TIMEOUT_SECONDS",
+        "STUDENT_AI_TIMEOUT_SECONDS",
+        "E_MODE_LLM_TIMEOUT",
+        default="45",
     )
 
     if not api_key:
         logger.error("E-Mode AI configuration missing OPENAI_API_KEY")
-        raise EModeLLMConfigError("E-Mode AI is not configured. Set OPENAI_API_KEY.")
+        raise EModeLLMConfigError(f"E-Mode AI is not configured. Set OPENAI_API_KEY in {ENV_PATH}.")
     if not model:
-        logger.error("E-Mode AI configuration missing E_MODE_MODEL")
-        raise EModeLLMConfigError("E-Mode AI is not configured. Set E_MODE_MODEL.")
+        logger.error("E-Mode AI configuration missing AI_MODEL")
+        raise EModeLLMConfigError(f"E-Mode AI is not configured. Set AI_MODEL in {ENV_PATH}.")
+
+    try:
+        timeout_seconds = int(timeout_raw)
+    except ValueError as exc:
+        logger.error("E-Mode AI configuration has invalid AI_TIMEOUT_SECONDS value")
+        raise EModeLLMConfigError(f"AI_TIMEOUT_SECONDS in {ENV_PATH} must be an integer.") from exc
 
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout_seconds)
 

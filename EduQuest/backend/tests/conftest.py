@@ -38,7 +38,7 @@ def client(tmp_path):
     seed = importlib.import_module("seed")
     seed.SessionLocal = testing_session_local
     seed.engine = testing_engine
-    seed.seed_db()
+    seed.seed_db(reset=True)
 
     import main  # noqa: E402
 

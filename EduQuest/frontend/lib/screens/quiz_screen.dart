@@ -54,7 +54,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
     try {
       final quiz = await ApiService.getQuiz(widget.lessonId);
-      final config = await ApiService.getSystemConfig();
+      final config = await ApiService.getAppConfig();
 
       if (!mounted) return;
 
@@ -119,7 +119,7 @@ class _QuizScreenState extends State<QuizScreen> {
         return;
       }
 
-      final res = await ApiService.submitQuiz(quizId!, userAnswers);
+      final res = await ApiService.submitQuiz(quizId!, List<int>.from(userAnswers));
 
       if (res != null) {
         await ApiService.completeLesson(widget.userId, widget.lessonId);
@@ -174,27 +174,23 @@ class _QuizScreenState extends State<QuizScreen> {
     });
   }
 
-  List<Map<String, dynamic>> _buildWrongAnswersPayload() {
-    final wrongAnswers = <Map<String, dynamic>>[];
-
-    for (var index = 0; index < questions.length; index++) {
-      final question = questions[index];
-      final userAnswerIdx = userAnswers[index];
-      final correctIdx = _correctIndex(question);
-      if (userAnswerIdx != correctIdx) {
-        wrongAnswers.add({
-          'question': _questionText(question),
-          'options': _options(question),
-          'user_answer_index': userAnswerIdx,
-          'correct_answer_index': correctIdx,
-          'explanation': question['explanation']?.toString(),
-          'hint': question['hint']?.toString(),
-          'topicTag': question['topicTag']?.toString(),
-        });
-      }
+  void _openAiReview({int? questionIndex}) {
+    final attemptId = ((resultData?['attempt_id'] ?? 0) as num).toInt();
+    if (attemptId <= 0) {
+      return;
     }
-
-    return wrongAnswers;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => AIReviewScreen(
+              userId: widget.userId,
+              attemptId: attemptId,
+              lessonTitle: widget.lessonTitle,
+              questionIndex: questionIndex,
+            ),
+      ),
+    );
   }
 
   @override
@@ -354,7 +350,6 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Widget _buildResultView() {
-    final wrongAnswers = _buildWrongAnswersPayload();
     final totalQuestions = questions.length;
     final localScore = totalQuestions == 0 ? 0.0 : correctAnswers / totalQuestions;
     final double score =
@@ -456,7 +451,7 @@ class _QuizScreenState extends State<QuizScreen> {
             label: const Text('Continue'),
             onPressed: () => Navigator.pop(context),
           ),
-        if (wrongAnswers.isNotEmpty) ...[
+        if ((resultData?['wrong_answer_indexes'] as List<dynamic>? ?? []).isNotEmpty) ...[
           const SizedBox(height: 12),
           ElevatedButton.icon(
             icon: const Icon(Icons.smart_toy_outlined),
@@ -464,19 +459,7 @@ class _QuizScreenState extends State<QuizScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: EduQuestColors.info,
             ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder:
-                      (_) => AIReviewScreen(
-                        userId: widget.userId,
-                        lessonTitle: widget.lessonTitle,
-                        wrongAnswers: wrongAnswers,
-                      ),
-                ),
-              );
-            },
+            onPressed: _openAiReview,
           ),
         ],
         const SizedBox(height: 16),
@@ -546,6 +529,15 @@ class _QuizScreenState extends State<QuizScreen> {
                         style: const TextStyle(
                           color: EduQuestColors.success,
                           fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.smart_toy_outlined),
+                          label: const Text('Review this mistake with AI'),
+                          onPressed: () => _openAiReview(questionIndex: index),
                         ),
                       ),
                     ],

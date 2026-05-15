@@ -552,6 +552,98 @@ class ApiService {
     return null;
   }
 
+  static Future<Map<String, dynamic>?> getAppConfig() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/app/config'),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> createOpenQuestionSession(
+    int courseId,
+    int lessonId, {
+    String? message,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/ai-tutor/open-question/sessions'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'course_id': courseId,
+          'lesson_id': lessonId,
+          'message': message,
+        }),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> sendOpenQuestionMessage(
+    int sessionId,
+    String message,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/ai-tutor/open-question/sessions/$sessionId/message'),
+        headers: await _getHeaders(),
+        body: jsonEncode({'message': message}),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> getStudentAiSession(int sessionId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/ai-tutor/sessions/$sessionId'),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> createQuizExplanationSession(
+    int attemptId, {
+    int? questionIndex,
+    String? message,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/ai-tutor/quiz-explanation/sessions'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'attempt_id': attemptId,
+          'question_index': questionIndex,
+          'message': message,
+        }),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> sendQuizExplanationMessage(
+    int sessionId,
+    String message,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/ai-tutor/quiz-explanation/sessions/$sessionId/message'),
+        headers: await _getHeaders(),
+        body: jsonEncode({'message': message}),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
   static Future<Map<String, dynamic>?> getAnalyticsOverview() async {
     try {
       final response = await http.get(

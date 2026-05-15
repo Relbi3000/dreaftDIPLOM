@@ -8,3 +8,4 @@ REPO_MEMORY/
 # Local backend runtime artifacts
 EduQuest/backend/*.log
 EduQuest/backend/*.db
+EduQuest/backend/.env

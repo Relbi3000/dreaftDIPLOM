@@ -4,6 +4,7 @@ import zipfile
 
 import pytest
 
+import e_mode_llm
 import routers.e_mode as e_mode_router
 from e_mode_llm import EModeLLMConfigError, EModeLLMProviderError
 from e_mode_schema import EModeValidationError, normalize_draft
@@ -164,6 +165,13 @@ def test_e_mode_prompt_uses_recent_messages_and_current_draft(client, auth_heade
 
 def test_e_mode_save_creates_standard_quiz_record(client, auth_headers, monkeypatch):
     session = _create_session(client, auth_headers).json()
+    existing_quiz = client.get(
+        "/api/quizzes/lesson/1",
+        headers=auth_headers("teacher@eduquest.com"),
+    )
+    assert existing_quiz.status_code == 200
+    original_quiz_id = existing_quiz.json()["id"]
+
     upload = client.post(
         f"/api/teacher/e-mode/sessions/{session['id']}/upload",
         headers=auth_headers("teacher@eduquest.com"),
@@ -209,6 +217,8 @@ def test_e_mode_save_creates_standard_quiz_record(client, auth_headers, monkeypa
     assert body["saved"] is True
     assert body["quiz"]["title"] == "Teacher AI Quiz"
     assert body["quiz"]["question_count"] == 1
+    assert body["quiz"]["id"] == original_quiz_id
+    assert body["replaced_existing_quiz"] is True
 
 
 def test_e_mode_generate_returns_503_when_ai_is_not_configured(client, auth_headers, monkeypatch):
@@ -221,7 +231,7 @@ def test_e_mode_generate_returns_503_when_ai_is_not_configured(client, auth_head
     assert upload.status_code == 200
 
     def fail_with_missing_config(_messages):
-        raise EModeLLMConfigError("E-Mode AI is not configured. Set OPENAI_API_KEY.")
+        raise EModeLLMConfigError("E-Mode AI is not configured. Set AI_MODEL in backend/.env.")
 
     monkeypatch.setattr(e_mode_router, "generate_draft_from_llm", fail_with_missing_config)
 
@@ -230,7 +240,7 @@ def test_e_mode_generate_returns_503_when_ai_is_not_configured(client, auth_head
         headers=auth_headers("teacher@eduquest.com"),
     )
     assert generated.status_code == 503
-    assert "OPENAI_API_KEY" in generated.json()["detail"]
+    assert "AI_MODEL" in generated.json()["detail"]
 
 
 def test_e_mode_generate_returns_502_when_provider_fails(client, auth_headers, monkeypatch):
@@ -252,6 +262,132 @@ def test_e_mode_generate_returns_502_when_provider_fails(client, auth_headers, m
         headers=auth_headers("teacher@eduquest.com"),
     )
     assert generated.status_code == 502
+
+
+def test_e_mode_config_prefers_shared_keys(monkeypatch):
+    monkeypatch.setattr(e_mode_llm, "_load_env_files", lambda: None)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("AI_MODEL", "shared-model")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://example.test/v1")
+    monkeypatch.setenv("AI_TIMEOUT_SECONDS", "21")
+    monkeypatch.delenv("E_MODE_MODEL", raising=False)
+    monkeypatch.delenv("E_MODE_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("STUDENT_AI_MODEL", raising=False)
+    monkeypatch.delenv("STUDENT_AI_TIMEOUT_SECONDS", raising=False)
+
+    captured = {}
+
+    class _Parsed:
+        def model_dump(self):
+            return {
+                "title": "Shared key draft",
+                "xp_reward": 100,
+                "assistant_message": "ok",
+                "questions": [
+                    {
+                        "type": "mcq",
+                        "q": "Question",
+                        "options": ["A", "B"],
+                        "answer": 0,
+                        "difficulty": "easy",
+                        "topicTag": "topic",
+                        "hint": "hint",
+                        "explanation": "explanation",
+                        "code": None,
+                    }
+                ],
+            }
+
+    class _Message:
+        parsed = _Parsed()
+        content = '{"ok":true}'
+
+    class _Completions:
+        def parse(self, **kwargs):
+            captured.update(kwargs)
+            return type("Completion", (), {"choices": [type("Choice", (), {"message": _Message()})()]})()
+
+    class _Chat:
+        completions = _Completions()
+
+    class _Beta:
+        chat = _Chat()
+
+    class _Client:
+        def __init__(self, api_key, base_url, timeout):
+            captured["api_key"] = api_key
+            captured["base_url"] = base_url
+            captured["timeout"] = timeout
+            self.beta = _Beta()
+
+    monkeypatch.setattr(e_mode_llm, "OpenAI", _Client)
+
+    draft = e_mode_llm.generate_draft_from_llm([{"role": "user", "content": "test"}])
+
+    assert draft["title"] == "Shared key draft"
+    assert captured["api_key"] == "test-key"
+    assert captured["base_url"] == "https://example.test/v1"
+    assert captured["timeout"] == 21
+    assert captured["model"] == "shared-model"
+
+
+def test_e_mode_config_falls_back_to_legacy_keys(monkeypatch):
+    monkeypatch.setattr(e_mode_llm, "_load_env_files", lambda: None)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.delenv("AI_MODEL", raising=False)
+    monkeypatch.delenv("AI_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setenv("E_MODE_MODEL", "legacy-e-mode-model")
+    monkeypatch.setenv("E_MODE_TIMEOUT_SECONDS", "29")
+
+    captured = {}
+
+    class _Parsed:
+        def model_dump(self):
+            return {
+                "title": "Legacy key draft",
+                "xp_reward": 100,
+                "assistant_message": "ok",
+                "questions": [
+                    {
+                        "type": "mcq",
+                        "q": "Question",
+                        "options": ["A", "B"],
+                        "answer": 0,
+                        "difficulty": "easy",
+                        "topicTag": "topic",
+                        "hint": "hint",
+                        "explanation": "explanation",
+                        "code": None,
+                    }
+                ],
+            }
+
+    class _Message:
+        parsed = _Parsed()
+        content = '{"ok":true}'
+
+    class _Completions:
+        def parse(self, **kwargs):
+            captured.update(kwargs)
+            return type("Completion", (), {"choices": [type("Choice", (), {"message": _Message()})()]})()
+
+    class _Chat:
+        completions = _Completions()
+
+    class _Beta:
+        chat = _Chat()
+
+    class _Client:
+        def __init__(self, api_key, base_url, timeout):
+            captured["timeout"] = timeout
+            self.beta = _Beta()
+
+    monkeypatch.setattr(e_mode_llm, "OpenAI", _Client)
+
+    e_mode_llm.generate_draft_from_llm([{"role": "user", "content": "test"}])
+
+    assert captured["model"] == "legacy-e-mode-model"
+    assert captured["timeout"] == 29
 
 
 def test_e_mode_rejects_invalid_ai_output():

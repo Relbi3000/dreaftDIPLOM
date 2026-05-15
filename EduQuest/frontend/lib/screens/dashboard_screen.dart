@@ -342,13 +342,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ).then((_) => _loadData());
   }
 
-  void _openAiTutor([String tutorContext = 'General study planning']) {
+  Future<void> _openAiTutor([String _ = '']) async {
+    if (courses.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Open a course first so the AI can stay grounded.'),
+        ),
+      );
+      setState(() => _selectedIndex = 1);
+      return;
+    }
+
+    final firstCourse = courses.first;
+    final courseId = ((firstCourse['id'] ?? 0) as num).toInt();
+    final lessons = await ApiService.getLessons(courseId);
+    if (!mounted) return;
+
+    if (lessons.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This course has no lessons yet for AI tutoring.'),
+        ),
+      );
+      return;
+    }
+
+    final firstLesson = lessons.first;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder:
-            (_) =>
-                AITutorScreen(userId: widget.userId, contextStr: tutorContext),
+            (_) => AITutorScreen(
+              userId: widget.userId,
+              courseId: courseId,
+              courseTitle: firstCourse['title']?.toString() ?? 'Course',
+              lessonId: ((firstLesson['id'] ?? 0) as num).toInt(),
+              lessonTitle: firstLesson['title']?.toString() ?? 'Lesson',
+            ),
       ),
     );
   }

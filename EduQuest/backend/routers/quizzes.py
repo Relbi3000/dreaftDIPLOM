@@ -44,6 +44,7 @@ def submit_quiz(quiz_id: int, submission: QuizSubmit, db: Session = Depends(data
 
     correct_answers = 0
     wrong_answers = []
+    wrong_answer_indexes: list[int] = []
     for index, (question, answer_index) in enumerate(zip(questions, submission.answers)):
         options = question.get("options", [])
         correct_index = question.get("answer")
@@ -57,6 +58,7 @@ def submit_quiz(quiz_id: int, submission: QuizSubmit, db: Session = Depends(data
             correct_answers += 1
             continue
 
+        wrong_answer_indexes.append(index)
         wrong_answers.append(
             {
                 "question": question.get("q", f"Question {index + 1}"),
@@ -91,7 +93,10 @@ def submit_quiz(quiz_id: int, submission: QuizSubmit, db: Session = Depends(data
         user_id=current_user.id,
         quiz_id=quiz_id,
         score=score,
-        earned_xp=xp_earned
+        earned_xp=xp_earned,
+        student_answers_json=json.dumps(submission.answers),
+        quiz_questions_snapshot_json=json.dumps(questions),
+        wrong_answer_indexes_json=json.dumps(wrong_answer_indexes),
     )
     db.add(attempt)
     
@@ -123,6 +128,7 @@ def submit_quiz(quiz_id: int, submission: QuizSubmit, db: Session = Depends(data
         "new_level": profile.level if profile else 1,
         "new_streak": profile.streak if profile else 0,
         "feedback_message": feedback_message,
+        "wrong_answer_indexes": wrong_answer_indexes,
         "wrong_answers": wrong_answers,
     }
 

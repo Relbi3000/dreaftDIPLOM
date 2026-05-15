@@ -1,3 +1,4 @@
+import argparse
 from datetime import datetime, timedelta
 import json
 
@@ -1020,14 +1021,26 @@ def _quiz_payload(lesson_title: str, title: str) -> list[dict]:
     return questions
 
 
-def seed_db():
-    print("Dropping all tables to reset state...")
-    models.Base.metadata.drop_all(bind=engine)
-    print("Recreating tables...")
+def seed_db(*, reset: bool = False):
+    if reset:
+        print("Dropping all tables to reset state...")
+        models.Base.metadata.drop_all(bind=engine)
+
+    print("Ensuring tables exist...")
     models.Base.metadata.create_all(bind=engine)
 
     db = SessionLocal()
     now = datetime.utcnow()
+
+    has_existing_data = (
+        db.query(models.User).first() is not None
+        or db.query(models.Course).first() is not None
+        or db.query(models.Quiz).first() is not None
+    )
+    if has_existing_data:
+        print("Existing EduQuest data detected. Skipping demo reseed.")
+        db.close()
+        return
 
     print("Seeding system config...")
     sys_config = models.SystemConfig(ai_safety=True, retries_enabled=True, xp_per_quiz=100)
@@ -1223,4 +1236,11 @@ def seed_db():
 
 
 if __name__ == "__main__":
-    seed_db()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Drop and recreate all tables before seeding demo data.",
+    )
+    args = parser.parse_args()
+    seed_db(reset=args.reset)

@@ -300,12 +300,17 @@ def save_draft_as_quiz(
     except (json.JSONDecodeError, EModeValidationError) as exc:
         raise HTTPException(status_code=422, detail="Current draft is invalid and cannot be saved") from exc
 
-    quiz = models.Quiz(
-        lesson_id=session.lesson_id,
-        title=((payload.title or normalized.title).strip() or normalized.title),
-        xp_reward=payload.xp_reward if payload.xp_reward is not None else normalized.xp_reward,
-        questions=json.dumps(normalized.questions, ensure_ascii=False),
+    existing_quiz = (
+        db.query(models.Quiz)
+        .filter(models.Quiz.lesson_id == session.lesson_id)
+        .order_by(models.Quiz.id.asc())
+        .first()
     )
+    replaced_existing_quiz = existing_quiz is not None
+    quiz = existing_quiz or models.Quiz(lesson_id=session.lesson_id)
+    quiz.title = ((payload.title or normalized.title).strip() or normalized.title)
+    quiz.xp_reward = payload.xp_reward if payload.xp_reward is not None else normalized.xp_reward
+    quiz.questions = json.dumps(normalized.questions, ensure_ascii=False)
     db.add(quiz)
     db.commit()
     db.refresh(quiz)
@@ -320,4 +325,5 @@ def save_draft_as_quiz(
         },
         "session_id": session.id,
         "saved": True,
+        "replaced_existing_quiz": replaced_existing_quiz,
     }

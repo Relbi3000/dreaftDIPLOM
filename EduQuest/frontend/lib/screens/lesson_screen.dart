@@ -133,20 +133,16 @@ class _LessonScreenState extends State<LessonScreen> {
 
   void _openAiTutor([String? promptContext]) {
     if (selectedLesson == null) return;
-    final title = selectedLesson['title']?.toString() ?? 'Lesson';
-    final payload = _lessonPayload(selectedLesson);
-    final hook = payload['hook']?.toString() ?? '';
-    final recap = payload['recap']?.toString() ?? '';
     Navigator.push(
       context,
       MaterialPageRoute(
         builder:
             (_) => AITutorScreen(
+              courseId: widget.courseId,
+              courseTitle: widget.courseTitle,
+              lessonId: (selectedLesson['id'] as num).toInt(),
+              lessonTitle: selectedLesson['title']?.toString() ?? 'Lesson',
               userId: widget.userId,
-              contextStr:
-                  promptContext == null
-                      ? '$title\n$hook'
-                      : '$title\n$promptContext\n$hook\n$recap',
             ),
       ),
     );

@@ -58,12 +58,31 @@ def test_teacher_content_validation_and_assignment_flow(client, auth_headers):
     quiz_body = created_quiz.json()
     assert quiz_body["lesson_id"] == lesson_id
     assert quiz_body["question_count"] == 1
+    assert quiz_body["updated_existing_quiz"] is False
+
+    updated_quiz = client.post(
+        "/api/teacher/quizzes",
+        headers=auth_headers("teacher@eduquest.com"),
+        json={
+            "lesson_id": lesson_id,
+            "title": "API Quiz Revised",
+            "questions": [
+                {"q": "Why validate?", "options": ["To protect data", "To change CSS"], "answer": 0},
+            ],
+            "xp_reward": 140,
+        },
+    )
+    assert updated_quiz.status_code == 200
+    revised_body = updated_quiz.json()
+    assert revised_body["id"] == quiz_body["id"]
+    assert revised_body["title"] == "API Quiz Revised"
+    assert revised_body["updated_existing_quiz"] is True
 
     created_assignment = client.post(
         "/api/teacher/assignments",
         headers=auth_headers("teacher@eduquest.com"),
         json={
-            "quiz_id": quiz_body["id"],
+            "quiz_id": revised_body["id"],
             "course_id": course_id,
             "title": "Assignment 1",
             "instructions": "Complete after the lesson",
@@ -84,7 +103,7 @@ def test_teacher_content_validation_and_assignment_flow(client, auth_headers):
         f"/api/teacher/assignments/{assignment_id}",
         headers=auth_headers("teacher@eduquest.com"),
         json={
-            "quiz_id": quiz_body["id"],
+            "quiz_id": revised_body["id"],
             "course_id": course_id,
             "title": "Assignment 1 updated",
             "instructions": "Review the lesson and submit",

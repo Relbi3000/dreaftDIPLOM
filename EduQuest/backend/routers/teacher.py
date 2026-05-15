@@ -178,18 +178,24 @@ def create_quiz(quiz: QuizCreate, db: Session = Depends(database.get_db), curren
     if quiz.xp_reward < 0 or quiz.xp_reward > 500:
         raise HTTPException(status_code=400, detail="XP reward must be between 0 and 500")
 
-    new_quiz = models.Quiz(
-        lesson_id=quiz.lesson_id,
-        title=quiz.title,
-        xp_reward=quiz.xp_reward,
-        questions=json.dumps(quiz.questions),
+    existing_quiz = (
+        db.query(models.Quiz)
+        .filter(models.Quiz.lesson_id == quiz.lesson_id)
+        .order_by(models.Quiz.id.asc())
+        .first()
     )
-    db.add(new_quiz)
+    updated_existing = existing_quiz is not None
+    target_quiz = existing_quiz or models.Quiz(lesson_id=quiz.lesson_id)
+    target_quiz.title = quiz.title
+    target_quiz.xp_reward = quiz.xp_reward
+    target_quiz.questions = json.dumps(quiz.questions)
+    db.add(target_quiz)
     db.commit()
-    db.refresh(new_quiz)
+    db.refresh(target_quiz)
     return {
-        **_quiz_summary(new_quiz),
+        **_quiz_summary(target_quiz),
         "lesson_title": lesson.title,
+        "updated_existing_quiz": updated_existing,
     }
 
 

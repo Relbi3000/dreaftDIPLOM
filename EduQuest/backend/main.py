@@ -1,10 +1,35 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 import models
 from database import engine
 
-# Create the database tables
-models.Base.metadata.create_all(bind=engine)
+
+def _ensure_runtime_schema() -> None:
+    models.Base.metadata.create_all(bind=engine)
+    inspector = inspect(engine)
+
+    if "attempts" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("attempts")}
+    required_columns = {
+        "student_answers_json": "TEXT DEFAULT '[]'",
+        "quiz_questions_snapshot_json": "TEXT DEFAULT '[]'",
+        "wrong_answer_indexes_json": "TEXT DEFAULT '[]'",
+    }
+
+    with engine.begin() as connection:
+        for column_name, column_definition in required_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(
+                    text(
+                        f"ALTER TABLE attempts ADD COLUMN {column_name} {column_definition}"
+                    )
+                )
+
+
+_ensure_runtime_schema()
 
 app = FastAPI(title="EduQuest API", description="AI-enhanced learning app backend for bachelor thesis MVP")
 
