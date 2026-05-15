@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,16 +7,29 @@ import '../config.dart';
 
 class ApiService {
   static String get baseUrl => AppConfig.baseUrl;
+  static const Duration _requestTimeout = Duration(seconds: 12);
 
   static Future<Map<String, String>> _getHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('user_id');
-    final token = prefs.getString('auth_token');
+    final token = await FirebaseAuth.instance.currentUser
+        ?.getIdToken(true)
+        .timeout(_requestTimeout);
     return {
       'Content-Type': 'application/json',
-      if (userId != null) 'X-User-Id': userId.toString(),
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
+  }
+
+  static Future<void> _cacheUser(Map<String, dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = data['user_id'] ?? data['id'];
+    if (userId is int) {
+      await prefs.setInt('user_id', userId);
+    } else if (userId is num) {
+      await prefs.setInt('user_id', userId.toInt());
+    }
+    await prefs.setString('user_email', data['email']?.toString() ?? '');
+    await prefs.setString('user_name', data['full_name']?.toString() ?? '');
+    await prefs.setString('user_role', data['role']?.toString() ?? 'student');
   }
 
   static Future<Map<String, dynamic>?> login(
@@ -23,27 +37,27 @@ class ApiService {
     String password,
   ) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
       );
-
+      final response = await http.get(
+        Uri.parse('$baseUrl/auth/me'),
+        headers: await _getHeaders(),
+      ).timeout(_requestTimeout);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('user_id', data['user_id']);
-        if (data['token'] != null) {
-          await prefs.setString('auth_token', data['token']);
-        }
-        await prefs.setString('user_email', data['email'] ?? email);
-        await prefs.setString('user_name', data['full_name'] ?? '');
-        await prefs.setString('user_role', data['role'] ?? 'student');
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await _cacheUser(data);
         return data;
       }
+      debugPrint(
+        'Backend /auth/me failed: ${response.statusCode} ${response.body}',
+      );
+      await FirebaseAuth.instance.signOut();
       return null;
     } catch (e) {
       debugPrint('Login error: $e');
+      await FirebaseAuth.instance.signOut();
       return null;
     }
   }
@@ -54,18 +68,25 @@ class ApiService {
     String password,
   ) async {
     try {
+      final credential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+      await credential.user?.updateDisplayName(fullName);
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'full_name': fullName,
-          'email': email,
-          'password': password,
-        }),
+        Uri.parse('$baseUrl/auth/register-profile'),
+        headers: await _getHeaders(),
+        body: jsonEncode({'full_name': fullName}),
+      ).timeout(_requestTimeout);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await _cacheUser(data);
+        return data;
+      }
+      debugPrint(
+        'Backend /auth/register-profile failed: ${response.statusCode} ${response.body}',
       );
-      if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (e) {
       debugPrint('Register error: $e');
+      await FirebaseAuth.instance.signOut();
     }
     return null;
   }
@@ -75,16 +96,18 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/auth/me'),
         headers: await _getHeaders(),
-      );
+      ).timeout(_requestTimeout);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_email', data['email'] ?? '');
-        await prefs.setString('user_name', data['full_name'] ?? '');
-        await prefs.setString('user_role', data['role'] ?? 'student');
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await _cacheUser(data);
         return data;
       }
-    } catch (_) {}
+      debugPrint(
+        'Backend /auth/me failed: ${response.statusCode} ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('Current user load error: $e');
+    }
     return null;
   }
 
@@ -97,6 +120,7 @@ class ApiService {
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        await FirebaseAuth.instance.currentUser?.updateDisplayName(fullName);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_name', data['full_name'] ?? fullName);
         return true;
@@ -110,26 +134,28 @@ class ApiService {
     String newPassword,
   ) async {
     try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/auth/change-password'),
-        headers: await _getHeaders(),
-        body: jsonEncode({
-          'current_password': currentPassword,
-          'new_password': newPassword,
-        }),
+      final user = FirebaseAuth.instance.currentUser;
+      final email = user?.email;
+      if (user == null || email == null) {
+        return 'No Firebase user is signed in.';
+      }
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: currentPassword,
       );
-      if (response.statusCode == 200) return null;
-      final data = jsonDecode(response.body);
-      return data['detail']?.toString() ?? 'Unable to update password';
-    } catch (_) {
-      return 'Unable to update password';
+      await user.reauthenticateWithCredential(credential);
+      await user.updatePassword(newPassword);
+      return null;
+    } catch (e) {
+      debugPrint('Change password error: $e');
+      return 'Unable to update password with Firebase Auth.';
     }
   }
 
   static Future<void> logout() async {
+    await FirebaseAuth.instance.signOut();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_id');
-    await prefs.remove('auth_token');
     await prefs.remove('user_email');
     await prefs.remove('user_name');
     await prefs.remove('user_role');
@@ -144,19 +170,6 @@ class ApiService {
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (_) {}
     return null;
-  }
-
-  static Future<bool> completeLesson(int userId, int lessonId) async {
-    try {
-      final response = await http.post(
-        Uri.parse(
-          '$baseUrl/gamification/profile/$userId/complete_lesson/$lessonId',
-        ),
-        headers: await _getHeaders(),
-      );
-      return response.statusCode == 200;
-    } catch (_) {}
-    return false;
   }
 
   static Future<List<dynamic>> getUserAttempts(int userId) async {

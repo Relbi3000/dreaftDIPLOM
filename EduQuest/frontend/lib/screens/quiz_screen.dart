@@ -121,10 +121,6 @@ class _QuizScreenState extends State<QuizScreen> {
 
       final res = await ApiService.submitQuiz(quizId!, List<int>.from(userAnswers));
 
-      if (res != null) {
-        await ApiService.completeLesson(widget.userId, widget.lessonId);
-      }
-
       if (!mounted) return;
 
       if (res == null) {
