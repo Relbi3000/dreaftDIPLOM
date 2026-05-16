@@ -30,6 +30,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? currentUser;
   List<dynamic> courses = [];
   List<dynamic> attempts = [];
+  Map<int, Map<String, dynamic>> courseProgressSummary = {};
   bool isLoading = true;
   String? loadError;
 
@@ -137,6 +138,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ApiService.getCourses(),
         ApiService.getUserAttempts(widget.userId),
         ApiService.getCurrentUser(),
+        ApiService.getCourseProgressSummary(),
       ]);
 
       if (!mounted) return;
@@ -145,6 +147,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final coursesData = results[1] as List<dynamic>;
       final attemptsData = results[2] as List<dynamic>;
       final currentUserData = results[3] as Map<String, dynamic>?;
+      final progressSummaryData = results[4] as List<dynamic>;
+      final progressSummaryMap = <int, Map<String, dynamic>>{};
+      for (final item in progressSummaryData) {
+        if (item is Map<String, dynamic> && item['course_id'] is num) {
+          progressSummaryMap[(item['course_id'] as num).toInt()] = item;
+        }
+      }
 
       setState(() {
         profile =
@@ -161,6 +170,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             };
         courses = coursesData;
         attempts = attemptsData;
+        courseProgressSummary = progressSummaryMap;
         isLoading = false;
       });
     } catch (_) {
@@ -963,11 +973,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildCourseCard(dynamic course) {
     final lessonCount = ((course['lesson_count'] ?? 0) as num).toInt();
-    final completedForCourse = _completedCountForCourse(course);
+    final progress =
+        courseProgressSummary[((course['id'] ?? 0) as num).toInt()] ?? {};
+    final completedForCourse =
+        ((progress['completed_lessons'] ?? _completedCountForCourse(course)) as num)
+            .toInt();
+    final passedQuizzes = ((progress['passed_quizzes'] ?? 0) as num).toInt();
+    final attemptedQuizzes =
+        ((progress['attempted_quizzes'] ?? 0) as num).toInt();
+    final totalQuizzes =
+        ((progress['total_quizzes'] ?? (course['quiz_count'] ?? 0)) as num)
+            .toInt();
     final courseProgress =
-        lessonCount == 0
-            ? 0.0
-            : (completedForCourse / lessonCount).clamp(0.0, 1.0).toDouble();
+        (((progress['completion_percent'] ?? 0) as num).toDouble() / 100)
+            .clamp(0.0, 1.0)
+            .toDouble();
     final title = course['title']?.toString() ?? 'Course';
     final description =
         course['description']?.toString() ??
@@ -1016,6 +1036,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text(
                       '$completedForCourse/$lessonCount lessons completed',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    Text(
+                      '$passedQuizzes/$totalQuizzes quizzes passed · $attemptedQuizzes attempted',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     if (course['difficulty'] != null)

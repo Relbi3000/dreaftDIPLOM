@@ -216,6 +216,28 @@ class ApiService {
     return null;
   }
 
+  static Future<List<dynamic>> getCourseProgressSummary() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/courses/progress/summary'),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<Map<String, dynamic>?> getCourseProgress(int courseId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/courses/$courseId/progress'),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (_) {}
+    return null;
+  }
+
   static Future<Map<String, dynamic>?> getQuiz(int lessonId) async {
     try {
       final response = await http.get(
@@ -699,7 +721,7 @@ class ApiService {
       );
       return _decodeJsonOrError(response);
     } catch (e) {
-      return {'error': 'Unable to create E-Mode session: $e'};
+      return {'error': 'Unable to create Quiz AI Creator session: $e'};
     }
   }
 
@@ -711,7 +733,7 @@ class ApiService {
       );
       return _decodeJsonOrError(response);
     } catch (e) {
-      return {'error': 'Unable to load E-Mode session: $e'};
+      return {'error': 'Unable to load Quiz AI Creator session: $e'};
     }
   }
 
@@ -747,7 +769,7 @@ class ApiService {
       );
       return _decodeJsonOrError(response);
     } catch (e) {
-      return {'error': 'Unable to generate E-Mode draft: $e'};
+      return {'error': 'Unable to generate Quiz AI Creator draft: $e'};
     }
   }
 
@@ -763,7 +785,7 @@ class ApiService {
       );
       return _decodeJsonOrError(response);
     } catch (e) {
-      return {'error': 'Unable to update E-Mode draft: $e'};
+      return {'error': 'Unable to update Quiz AI Creator draft: $e'};
     }
   }
 
@@ -783,7 +805,7 @@ class ApiService {
       );
       return _decodeJsonOrError(response);
     } catch (e) {
-      return {'error': 'Unable to save E-Mode draft: $e'};
+      return {'error': 'Unable to save Quiz AI Creator draft: $e'};
     }
   }
 

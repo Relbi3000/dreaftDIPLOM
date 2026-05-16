@@ -3,10 +3,14 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 import database
-import models
+from firestore_primary_store import get_store
 
 
 router = APIRouter()
+
+
+def _store():
+    return get_store()
 
 
 class AppConfigResponse(BaseModel):
@@ -17,7 +21,8 @@ class AppConfigResponse(BaseModel):
 
 @router.get("/config", response_model=AppConfigResponse)
 def get_app_config(db: Session = Depends(database.get_db)):
-    config = db.query(models.SystemConfig).first()
+    _store().ensure_bootstrapped(db)
+    config = _store().get_system_config()
     if not config:
         return AppConfigResponse(
             ai_safety=True,
@@ -25,7 +30,7 @@ def get_app_config(db: Session = Depends(database.get_db)):
             xp_per_quiz=100,
         )
     return AppConfigResponse(
-        ai_safety=config.ai_safety,
-        retries_enabled=config.retries_enabled,
-        xp_per_quiz=config.xp_per_quiz,
+        ai_safety=config["ai_safety"],
+        retries_enabled=config["retries_enabled"],
+        xp_per_quiz=config["xp_per_quiz"],
     )

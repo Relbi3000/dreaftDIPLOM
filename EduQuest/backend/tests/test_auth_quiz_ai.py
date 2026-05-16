@@ -1,5 +1,7 @@
 import pytest
 import routers.ai_tutor as ai_tutor_router
+import dependencies
+from firebase_auth_provider import FirebaseIdentity
 
 
 def test_legacy_x_user_id_header_is_not_accepted(client):
@@ -167,6 +169,56 @@ def test_student_safe_config_and_retry_policy_enforcement(client, auth_headers):
     )
     assert second_submit.status_code == 409
     assert second_submit.json()["detail"] == "Quiz retries are disabled for this lesson"
+
+
+def test_auth_me_accepts_firebase_bearer_for_existing_user(client, monkeypatch):
+    monkeypatch.setattr(
+        dependencies,
+        "verify_firebase_bearer_token",
+        lambda token: FirebaseIdentity(
+            uid="firebase-student-uid",
+            email="student@eduquest.com",
+            full_name="Student Demo",
+        ),
+    )
+
+    response = client.get(
+        "/api/auth/me",
+        headers={"Authorization": "Bearer firebase-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "student@eduquest.com"
+    assert response.json()["role"] == "student"
+
+
+def test_register_profile_creates_local_user_for_firebase_account(client, monkeypatch):
+    monkeypatch.setattr(
+        dependencies,
+        "verify_firebase_bearer_token",
+        lambda token: FirebaseIdentity(
+            uid="firebase-new-user-uid",
+            email="fresh.firebase.user@eduquest.com",
+            full_name="Fresh Firebase User",
+        ),
+    )
+
+    register = client.post(
+        "/api/auth/register-profile",
+        headers={"Authorization": "Bearer firebase-token"},
+        json={"full_name": "Fresh Firebase User"},
+    )
+    assert register.status_code == 200
+    body = register.json()
+    assert body["email"] == "fresh.firebase.user@eduquest.com"
+    assert body["role"] == "student"
+
+    me = client.get(
+        "/api/auth/me",
+        headers={"Authorization": "Bearer firebase-token"},
+    )
+    assert me.status_code == 200
+    assert me.json()["email"] == "fresh.firebase.user@eduquest.com"
 
 
 def test_ai_review_shapes_and_user_validation(client, auth_headers, seeded_ids, monkeypatch):

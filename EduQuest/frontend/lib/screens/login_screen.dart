@@ -54,14 +54,23 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (res != null) {
+      final userIdValue = res['user_id'] ?? res['id'];
+      final userId = userIdValue is num ? userIdValue.toInt() : null;
+      if (userId == null) {
+        setState(() {
+          _isLoading = false;
+          _error = 'The server returned an invalid user profile payload.';
+        });
+        return;
+      }
       final role = res['role'];
       Widget nextScreen;
       if (role == 'teacher') {
-        nextScreen = TeacherScreen(userId: res['user_id']);
+        nextScreen = TeacherScreen(userId: userId);
       } else if (role == 'admin') {
-        nextScreen = AdminScreen(userId: res['user_id']);
+        nextScreen = AdminScreen(userId: userId);
       } else {
-        nextScreen = DashboardScreen(userId: res['user_id']);
+        nextScreen = DashboardScreen(userId: userId);
       }
       Navigator.pushReplacement(
         context,

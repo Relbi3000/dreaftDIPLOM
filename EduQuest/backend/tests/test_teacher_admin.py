@@ -1,3 +1,7 @@
+import database
+from firestore_primary_store import get_store
+
+
 def test_teacher_content_validation_and_assignment_flow(client, auth_headers):
     invalid_lesson = client.post(
         "/api/teacher/lessons",
@@ -205,3 +209,99 @@ def test_admin_governance_depth(client, auth_headers):
         "config_snapshot",
         "recent_ai_activity_count",
     }.issubset(platform_status.json().keys())
+
+
+def test_teacher_analytics_and_students_progress_tolerate_malformed_firestore_records(client, auth_headers, seeded_ids):
+    store = get_store()
+    db = database.SessionLocal()
+    try:
+        store.ensure_bootstrapped(db)
+        store.update_user(
+            seeded_ids["student@eduquest.com"],
+            {"full_name": ""},
+            db=db,
+        )
+        store.backend.set_doc(
+            "users",
+            "legacy-firebase-user",
+            {
+                "id": "legacy-firebase-user",
+                "firebase_uid": "legacy-firebase-user",
+                "email": "",
+            },
+        )
+        store.backend.set_doc(
+            "attempts",
+            "broken-attempt",
+            {
+                "id": "broken-attempt",
+                "user_id": seeded_ids["student@eduquest.com"],
+                "created_at": "2026-01-01T10:00:00+00:00",
+            },
+        )
+    finally:
+        db.close()
+
+    students = client.get(
+        "/api/teacher/students-progress",
+        headers=auth_headers("teacher@eduquest.com"),
+    )
+    assert students.status_code == 200
+    first_student = next(
+        item for item in students.json()
+        if item["id"] == seeded_ids["student@eduquest.com"]
+    )
+    assert first_student["name"]
+    assert first_student["email"]
+
+    analytics = client.get(
+        "/api/teacher/analytics-summary",
+        headers=auth_headers("teacher@eduquest.com"),
+    )
+    assert analytics.status_code == 200
+    assert "average_score" in analytics.json()
+
+
+def test_course_progress_endpoints_show_lesson_and_quiz_status(client, auth_headers):
+    quiz = client.get(
+        "/api/quizzes/lesson/1",
+        headers=auth_headers("student@eduquest.com"),
+    )
+    assert quiz.status_code == 200
+    questions = quiz.json()["questions"]
+    import json
+    decoded = json.loads(questions)
+    answers = [int(item["answer"]) for item in decoded]
+
+    submit = client.post(
+        "/api/quizzes/1/submit",
+        headers=auth_headers("student@eduquest.com"),
+        json={"answers": answers},
+    )
+    assert submit.status_code == 200
+
+    summary = client.get(
+        "/api/courses/progress/summary",
+        headers=auth_headers("student@eduquest.com"),
+    )
+    assert summary.status_code == 200
+    assert any(item["course_id"] == 1 for item in summary.json())
+
+    detail = client.get(
+        "/api/courses/1/progress",
+        headers=auth_headers("student@eduquest.com"),
+    )
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["course_id"] == 1
+    assert "summary" in body
+    assert body["lessons"]
+    first_lesson = body["lessons"][0]
+    assert {
+        "lesson_completed",
+        "quiz_available",
+        "quiz_attempted",
+        "quiz_passed",
+        "best_score",
+        "attempt_count",
+    }.issubset(first_lesson.keys())

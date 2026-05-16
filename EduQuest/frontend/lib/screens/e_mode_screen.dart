@@ -70,7 +70,7 @@ class _EModeScreenState extends State<EModeScreen> {
     if (courses.isEmpty) {
       setState(() {
         _loading = false;
-        _loadError = 'No courses available for E-Mode.';
+        _loadError = 'No courses available for Quiz AI Creator.';
       });
       return;
     }
@@ -136,11 +136,6 @@ class _EModeScreenState extends State<EModeScreen> {
       _showMessage('Topic is required');
       return;
     }
-    if (_selectedFileBytes == null || _selectedFileName == null) {
-      _showMessage('Upload a PDF, TXT, or DOCX file first');
-      return;
-    }
-
     setState(() => _busy = true);
     final created = await ApiService.createEModeSession(
       courseId: _selectedCourseId!,
@@ -163,16 +158,18 @@ class _EModeScreenState extends State<EModeScreen> {
       return;
     }
 
-    final uploaded = await ApiService.uploadEModeMaterial(
-      sessionId: (created['id'] as num).toInt(),
-      fileName: _selectedFileName!,
-      bytes: _selectedFileBytes!,
-    );
-    if (!mounted) return;
-    if (uploaded['error'] != null) {
-      setState(() => _busy = false);
-      _showMessage(uploaded['error'].toString());
-      return;
+    if (_selectedFileBytes != null && _selectedFileName != null) {
+      final uploaded = await ApiService.uploadEModeMaterial(
+        sessionId: (created['id'] as num).toInt(),
+        fileName: _selectedFileName!,
+        bytes: _selectedFileBytes!,
+      );
+      if (!mounted) return;
+      if (uploaded['error'] != null) {
+        setState(() => _busy = false);
+        _showMessage(uploaded['error'].toString());
+        return;
+      }
     }
 
     final generated = await ApiService.generateEModeDraft(
@@ -189,7 +186,7 @@ class _EModeScreenState extends State<EModeScreen> {
       _showMessage(generated['error'].toString());
       return;
     }
-    _showMessage('E-Mode draft generated');
+    _showMessage('Quiz AI Creator draft generated');
   }
 
   Future<void> _sendChatMessage() async {
@@ -239,7 +236,7 @@ class _EModeScreenState extends State<EModeScreen> {
     if (_loading) {
       return const Scaffold(
         body: AppLoadingView(
-          title: 'Opening E-Mode',
+          title: 'Opening Quiz AI Creator',
           message: 'Loading course structure, lessons, and AI draft controls.',
         ),
       );
@@ -248,7 +245,7 @@ class _EModeScreenState extends State<EModeScreen> {
     if (_loadError != null) {
       return Scaffold(
         body: AppErrorState(
-          title: 'E-Mode unavailable',
+          title: 'Quiz AI Creator unavailable',
           description: _loadError!,
           onRetry: _loadCourses,
         ),
@@ -256,13 +253,13 @@ class _EModeScreenState extends State<EModeScreen> {
     }
 
     return EduQuestShell(
-      title: 'E-Mode',
+      title: 'Quiz AI Creator',
       subtitle:
-          'Generate quiz drafts from uploaded learning materials, then refine them in chat before saving.',
+          'Generate quiz drafts from uploaded materials, lesson content, or teacher instructions, then refine them in chat before saving.',
       currentIndex: 1,
       destinations: const [
         ShellDestination(label: 'Back', icon: Icons.arrow_back),
-        ShellDestination(label: 'E-Mode', icon: Icons.auto_awesome),
+        ShellDestination(label: 'Quiz AI Creator', icon: Icons.auto_awesome),
       ],
       onSelect: (index) {
         if (index == 0) Navigator.of(context).pop();
@@ -308,11 +305,11 @@ class _EModeScreenState extends State<EModeScreen> {
           const AppSectionHeader(
             title: 'Draft setup',
             subtitle:
-                'Choose where the final quiz will live, upload material, and set generation preferences.',
+                'Choose where the final quiz will live, optionally upload material, and set generation preferences.',
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<int>(
-            value: _selectedCourseId,
+            initialValue: _selectedCourseId,
             items: _courses
                 .map(
                   (course) => DropdownMenuItem<int>(
@@ -337,7 +334,7 @@ class _EModeScreenState extends State<EModeScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(
-            value: _selectedLessonId,
+            initialValue: _selectedLessonId,
             items: lessons
                 .map(
                   (lesson) => DropdownMenuItem<int>(
@@ -373,7 +370,7 @@ class _EModeScreenState extends State<EModeScreen> {
           const SizedBox(height: 12),
           AdaptiveTwoPane(
             first: DropdownButtonFormField<String>(
-              value: _studentLevel,
+              initialValue: _studentLevel,
               items: const [
                 DropdownMenuItem(value: 'beginner', child: Text('Beginner')),
                 DropdownMenuItem(value: 'intermediate', child: Text('Intermediate')),
@@ -385,7 +382,7 @@ class _EModeScreenState extends State<EModeScreen> {
               decoration: const InputDecoration(labelText: 'Student level'),
             ),
             second: DropdownButtonFormField<String>(
-              value: _difficulty,
+              initialValue: _difficulty,
               items: const [
                 DropdownMenuItem(value: 'easy', child: Text('Easy')),
                 DropdownMenuItem(value: 'medium', child: Text('Medium')),
@@ -405,7 +402,7 @@ class _EModeScreenState extends State<EModeScreen> {
               decoration: const InputDecoration(labelText: 'Question count'),
             ),
             second: DropdownButtonFormField<String>(
-              value: _language,
+              initialValue: _language,
               items: const [
                 DropdownMenuItem(value: 'English', child: Text('English')),
                 DropdownMenuItem(value: 'Russian', child: Text('Russian')),
@@ -448,7 +445,7 @@ class _EModeScreenState extends State<EModeScreen> {
             first: OutlinedButton.icon(
               onPressed: _busy ? null : _pickFile,
               icon: const Icon(Icons.upload_file_outlined),
-              label: Text(_selectedFileName ?? 'Upload PDF / TXT / DOCX'),
+              label: Text(_selectedFileName ?? 'Optional PDF / TXT / DOCX'),
             ),
             second: ElevatedButton.icon(
               onPressed: _busy ? null : _startGeneration,
@@ -459,7 +456,7 @@ class _EModeScreenState extends State<EModeScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.auto_awesome),
-              label: Text(_session == null ? 'Start E-Mode' : 'Start new draft'),
+              label: Text(_session == null ? 'Start Quiz AI Creator' : 'Start new draft'),
             ),
           ),
         ],
@@ -490,9 +487,18 @@ class _EModeScreenState extends State<EModeScreen> {
               icon: Icons.description_outlined,
               title: 'No draft yet',
               description:
-                  'Upload learning material and start E-Mode to generate the first quiz draft.',
+                  'Start Quiz AI Creator with optional upload to generate the first quiz draft.',
             )
           else ...[
+            AppInfoChip(
+              label: _selectedFileName != null
+                  ? 'Using uploaded material'
+                  : ((_session?['generation_source']?.toString() == 'lesson_content')
+                        ? 'Using lesson content'
+                        : 'Using teacher instructions only'),
+              color: EduQuestColors.info,
+            ),
+            const SizedBox(height: 12),
             Text(
               draft['title']?.toString() ?? 'Untitled draft',
               style: Theme.of(context).textTheme.titleLarge,
@@ -591,7 +597,7 @@ class _EModeScreenState extends State<EModeScreen> {
           if (_session == null)
             const AppEmptyState(
               icon: Icons.chat_bubble_outline,
-              title: 'No active E-Mode session',
+              title: 'No active Quiz AI Creator session',
               description:
                   'Generate the first draft before using the chat-based editing flow.',
             )

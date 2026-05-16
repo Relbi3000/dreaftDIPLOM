@@ -27,6 +27,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
+    firebase_uid = Column(String, nullable=True, index=True)
     full_name = Column(String)
     hashed_password = Column(String)
     role = Column(String, default="student") # student, teacher, admin

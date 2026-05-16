@@ -2,12 +2,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 import models
-from database import engine
+from database import engine, SessionLocal
+from firestore_primary_store import ensure_firestore_bootstrap
 
 
 def _ensure_runtime_schema() -> None:
     models.Base.metadata.create_all(bind=engine)
     inspector = inspect(engine)
+
+    if "users" in inspector.get_table_names():
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        with engine.begin() as connection:
+            if "firebase_uid" not in user_columns:
+                connection.execute(
+                    text("ALTER TABLE users ADD COLUMN firebase_uid VARCHAR")
+                )
 
     if "attempts" not in inspector.get_table_names():
         return
@@ -30,6 +39,7 @@ def _ensure_runtime_schema() -> None:
 
 
 _ensure_runtime_schema()
+ensure_firestore_bootstrap(SessionLocal)
 
 app = FastAPI(title="EduQuest API", description="AI-enhanced learning app backend for bachelor thesis MVP")
 

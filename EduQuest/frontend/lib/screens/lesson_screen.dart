@@ -33,6 +33,8 @@ class LessonScreen extends StatefulWidget {
 class _LessonScreenState extends State<LessonScreen> {
   List<dynamic> lessons = [];
   List<int> completedLessons = [];
+  Map<int, Map<String, dynamic>> lessonProgress = {};
+  Map<String, dynamic>? courseProgressSummary;
   dynamic selectedLesson;
   final Map<int, int> _practiceSelections = {};
   final Map<int, bool> _practiceChecked = {};
@@ -63,10 +65,16 @@ class _LessonScreenState extends State<LessonScreen> {
     });
 
     try {
-      final resLessons = await ApiService.getLessons(widget.courseId);
-      final resProfile = await ApiService.getProfile(widget.userId);
+      final results = await Future.wait([
+        ApiService.getLessons(widget.courseId),
+        ApiService.getProfile(widget.userId),
+        ApiService.getCourseProgress(widget.courseId),
+      ]);
 
       if (!mounted) return;
+      final resLessons = results[0] as List<dynamic>;
+      final resProfile = results[1] as Map<String, dynamic>?;
+      final resCourseProgress = results[2] as Map<String, dynamic>?;
 
       dynamic nextSelected;
       if (selectedId != null) {
@@ -78,11 +86,23 @@ class _LessonScreenState extends State<LessonScreen> {
         }
       }
 
+      final progressByLesson = <int, Map<String, dynamic>>{};
+      final lessonProgressItems =
+          resCourseProgress?['lessons'] as List<dynamic>? ?? const [];
+      for (final item in lessonProgressItems) {
+        if (item is Map<String, dynamic> && item['lesson_id'] is num) {
+          progressByLesson[(item['lesson_id'] as num).toInt()] = item;
+        }
+      }
+
       setState(() {
         lessons = resLessons;
         completedLessons = List<int>.from(
           resProfile?['completed_lessons'] as List? ?? [],
         );
+        lessonProgress = progressByLesson;
+        courseProgressSummary =
+            resCourseProgress?['summary'] as Map<String, dynamic>?;
         selectedLesson =
             nextSelected ?? (resLessons.isNotEmpty ? resLessons.first : null);
         isLoading = false;
@@ -240,8 +260,12 @@ class _LessonScreenState extends State<LessonScreen> {
   }
 
   Widget _buildCourseHero() {
-    final completed = _completedCourseLessonsCount();
-    final progress = lessons.isEmpty ? 0.0 : completed / lessons.length;
+    final completed = ((courseProgressSummary?['completed_lessons'] ?? _completedCourseLessonsCount()) as num).toInt();
+    final completionPercent = ((courseProgressSummary?['completion_percent'] ?? (lessons.isEmpty ? 0 : (completed / lessons.length) * 100)) as num).toDouble();
+    final progress = (completionPercent / 100).clamp(0.0, 1.0);
+    final passedQuizzes = ((courseProgressSummary?['passed_quizzes'] ?? 0) as num).toInt();
+    final attemptedQuizzes = ((courseProgressSummary?['attempted_quizzes'] ?? 0) as num).toInt();
+    final totalQuizzes = ((courseProgressSummary?['total_quizzes'] ?? 0) as num).toInt();
     final nextLesson = _nextLesson();
 
     return AppSurface(
@@ -286,7 +310,7 @@ class _LessonScreenState extends State<LessonScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${(progress * 100).round()}% completed after saved quiz progress',
+            '${completionPercent.round()}% completed · $passedQuizzes/$totalQuizzes quizzes passed · $attemptedQuizzes attempted',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (nextLesson != null) ...[
@@ -311,9 +335,17 @@ class _LessonScreenState extends State<LessonScreen> {
   dynamic _nextLesson() {
     if (lessons.isEmpty) return null;
     for (final lesson in lessons) {
-      if (!completedLessons.contains(lesson['id'])) return lesson;
+      final progress = _lessonProgressFor(lesson['id']);
+      if (!(progress['lesson_completed'] == true)) return lesson;
     }
     return lessons.first;
+  }
+
+  Map<String, dynamic> _lessonProgressFor(dynamic lessonId) {
+    if (lessonId is num) {
+      return lessonProgress[lessonId.toInt()] ?? const {};
+    }
+    return const {};
   }
 
   Widget _buildNextLessonPreview() {
@@ -365,7 +397,14 @@ class _LessonScreenState extends State<LessonScreen> {
   Widget _buildLessonTile(dynamic lesson) {
     final isSelected =
         widget.detailOnly && selectedLesson?['id'] == lesson['id'];
-    final isCompleted = completedLessons.contains(lesson['id']);
+    final progress = _lessonProgressFor(lesson['id']);
+    final isCompleted =
+        progress['lesson_completed'] == true ||
+        completedLessons.contains(lesson['id']);
+    final quizAvailable = progress['quiz_available'] == true;
+    final quizPassed = progress['quiz_passed'] == true;
+    final quizAttempted = progress['quiz_attempted'] == true;
+    final bestScore = progress['best_score'];
     final summary = lesson['summary']?.toString() ?? '';
 
     return Padding(
@@ -416,6 +455,37 @@ class _LessonScreenState extends State<LessonScreen> {
                             ? '${lesson['estimated_minutes'] ?? 15} min - completed'
                             : '${lesson['estimated_minutes'] ?? 15} min - study and practice',
                         style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          AppInfoChip(
+                            label: isCompleted ? 'Lesson completed' : 'Lesson not completed',
+                            color: isCompleted
+                                ? EduQuestColors.success
+                                : EduQuestColors.info,
+                          ),
+                          if (quizAvailable)
+                            AppInfoChip(
+                              label: quizPassed
+                                  ? 'Quiz passed'
+                                  : quizAttempted
+                                  ? 'Quiz attempted'
+                                  : 'Quiz not started',
+                              color: quizPassed
+                                  ? EduQuestColors.secondary
+                                  : quizAttempted
+                                  ? EduQuestColors.accent
+                                  : EduQuestColors.primary,
+                            ),
+                          if (bestScore is num)
+                            AppInfoChip(
+                              label: 'Best ${(bestScore.toDouble() * 100).round()}%',
+                              color: EduQuestColors.info,
+                            ),
+                        ],
                       ),
                       if (summary.isNotEmpty) ...[
                         const SizedBox(height: 6),

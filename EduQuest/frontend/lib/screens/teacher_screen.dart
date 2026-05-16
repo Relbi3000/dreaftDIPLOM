@@ -228,7 +228,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: selectedCourseId,
+                  initialValue: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -443,7 +443,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: selectedCourseId,
+                  initialValue: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -471,7 +471,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: selectedLessonId,
+                  initialValue: selectedLessonId,
                   items:
                       lessons
                           .map(
@@ -518,7 +518,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: questionType,
+                  initialValue: questionType,
                   items: const [
                     DropdownMenuItem(
                       value: 'mcq',
@@ -586,7 +586,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ],
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value:
+                  initialValue:
                       correctIndex < currentOptions.length ? correctIndex : 0,
                   items:
                       List.generate(
@@ -609,7 +609,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: difficulty,
+                  initialValue: difficulty,
                   items: const [
                     DropdownMenuItem(value: 'easy', child: Text('Easy')),
                     DropdownMenuItem(value: 'medium', child: Text('Medium')),
@@ -847,7 +847,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: selectedCourseId,
+                  initialValue: selectedCourseId,
                   items:
                       courses
                           .map(
@@ -875,7 +875,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: selectedQuizId,
+                  initialValue: selectedQuizId,
                   items:
                       quizOptions
                           .map(
@@ -1235,9 +1235,9 @@ class _TeacherScreenState extends State<TeacherScreen> {
         ),
         const SizedBox(height: 12),
         AppActionCard(
-          title: 'E-Mode draft studio',
+          title: 'Quiz AI Creator',
           subtitle:
-              'Upload source material, generate an AI draft, refine it in chat, and save it as a standard quiz.',
+              'Generate an AI quiz draft from uploaded material, lesson content, or teacher instructions, then refine it in chat and save it as a standard quiz.',
           icon: Icons.auto_awesome_outlined,
           color: EduQuestColors.accent,
           onTap: _openEMode,

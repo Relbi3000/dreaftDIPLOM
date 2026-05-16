@@ -76,6 +76,41 @@ def test_e_mode_upload_validation_and_txt_extraction(client, auth_headers):
     assert body["extracted_char_count"] > 10
 
 
+def test_e_mode_generate_can_use_lesson_content_without_upload(client, auth_headers, monkeypatch):
+    session = _create_session(client, auth_headers).json()
+
+    monkeypatch.setattr(
+        e_mode_router,
+        "generate_draft_from_llm",
+        lambda _messages: {
+            "title": "Lesson-content draft",
+            "xp_reward": 95,
+            "assistant_message": "Drafted from lesson content.",
+            "questions": [
+                {
+                    "type": "mcq",
+                    "q": "What do variables store?",
+                    "options": ["Values", "Errors"],
+                    "answer": 0,
+                    "difficulty": "easy",
+                    "topicTag": "variables",
+                    "hint": "Think about memory.",
+                    "explanation": "Variables store values for later use.",
+                }
+            ],
+        },
+    )
+
+    generated = client.post(
+        f"/api/teacher/e-mode/sessions/{session['id']}/generate",
+        headers=auth_headers("teacher@eduquest.com"),
+    )
+    assert generated.status_code == 200
+    body = generated.json()
+    assert body["draft"]["title"] == "Lesson-content draft"
+    assert body["generation_source"] == "lesson_content"
+
+
 def test_e_mode_upload_docx_extraction(client, auth_headers):
     session = _create_session(client, auth_headers).json()
 
